@@ -1,4 +1,5 @@
-const INDEX_URL = 'data/index.json'
+const GITHUB_RAW = 'https://raw.githubusercontent.com/cts-2007003/ghostline-dashboard/main'
+const INDEX_URL = `${GITHUB_RAW}/data/index.json`
 const REFRESH_INTERVAL = 60_000
 
 let trendChart = null
@@ -311,7 +312,7 @@ async function fetchAll() {
   // 2. Fetch all developer files in parallel
   const devFiles = await Promise.all(
     usernames.map(u =>
-      fetch(`data/${u}.json${bust}`)
+      fetch(`${GITHUB_RAW}/data/${u}.json${bust}`)
         .then(r => r.ok ? r.json() : null)
         .catch(() => null)
     )
