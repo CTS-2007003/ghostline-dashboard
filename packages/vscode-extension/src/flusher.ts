@@ -1,0 +1,110 @@
+import * as vscode from 'vscode'
+import { Octokit } from '@octokit/rest'
+import { getSession, resetSession } from './tracker'
+
+interface DevData {
+  username: string
+  ide: 'vscode'
+  total_lines_written: number
+  total_ai_lines: number
+  history: { date: string; total: number; ai: number }[]
+  last_updated: string
+}
+
+function today(): string {
+  return new Date().toISOString().slice(0, 10)
+}
+
+function config() {
+  const cfg = vscode.workspace.getConfiguration('ghostline')
+  return {
+    repo: cfg.get<string>('githubRepo', ''),
+    username: cfg.get<string>('githubUsername', '')
+  }
+}
+
+async function readFile(octokit: Octokit, owner: string, repo: string, path: string) {
+  try {
+    const res = await octokit.repos.getContent({ owner, repo, path })
+    const file = res.data as { content: string; sha: string }
+    const content = JSON.parse(Buffer.from(file.content, 'base64').toString('utf-8'))
+    return { content, sha: file.sha }
+  } catch {
+    return { content: null, sha: undefined }
+  }
+}
+
+export async function flush(context: vscode.ExtensionContext) {
+  const session = getSession()
+  if (session.totalLines === 0 && session.aiLines === 0) return
+
+  const { repo, username } = config()
+  if (!repo || !username) return
+
+  const token = await context.secrets.get('ghostline.githubToken')
+  if (!token) return
+
+  const [owner, repoName] = repo.split('/')
+  const octokit = new Octokit({ auth: token })
+  const path = `data/${username}.json`
+
+  const { content: existing, sha } = await readFile(octokit, owner, repoName, path)
+
+  const current: DevData = existing ?? {
+    username,
+    ide: 'vscode',
+    total_lines_written: 0,
+    total_ai_lines: 0,
+    history: [],
+    last_updated: ''
+  }
+
+  current.total_lines_written += session.totalLines
+  current.total_ai_lines += session.aiLines
+  current.last_updated = new Date().toISOString()
+
+  // Upsert today's entry in history
+  const todayStr = today()
+  const historyEntry = current.history.find(h => h.date === todayStr)
+  if (historyEntry) {
+    historyEntry.total += session.totalLines
+    historyEntry.ai += session.aiLines
+  } else {
+    current.history.push({ date: todayStr, total: session.totalLines, ai: session.aiLines })
+  }
+
+  // Keep last 90 days
+  current.history = current.history.slice(-90)
+
+  await octokit.repos.createOrUpdateFileContents({
+    owner,
+    repo: repoName,
+    path,
+    message: `ghostline: sync ${username} [skip ci]`,
+    content: Buffer.from(JSON.stringify(current, null, 2)).toString('base64'),
+    sha
+  })
+
+  await ensureInIndex(octokit, owner, repoName, username)
+
+  resetSession()
+}
+
+async function ensureInIndex(octokit: Octokit, owner: string, repo: string, username: string) {
+  const { content: existing, sha } = await readFile(octokit, owner, repo, 'data/index.json')
+  const index: string[] = existing ?? []
+
+  if (index.includes(username)) return  // already registered, no write needed
+
+  index.push(username)
+  index.sort()
+
+  await octokit.repos.createOrUpdateFileContents({
+    owner,
+    repo,
+    path: 'data/index.json',
+    message: `ghostline: register ${username} [skip ci]`,
+    content: Buffer.from(JSON.stringify(index, null, 2)).toString('base64'),
+    sha
+  })
+}

@@ -1,0 +1,67 @@
+{
+  "name": "ghostline",
+  "displayName": "Ghostline — AI Line Tracker",
+  "description": "Tracks AI-generated vs human-written lines and reports to your team dashboard.",
+  "version": "0.1.0",
+  "publisher": "ghostline",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Other"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "ghostline.setToken",
+        "title": "Ghostline: Set GitHub Token"
+      },
+      {
+        "command": "ghostline.showStatus",
+        "title": "Ghostline: Show Status"
+      },
+      {
+        "command": "ghostline.acceptAiSuggestion",
+        "title": "Ghostline: Accept AI Suggestion"
+      }
+    ],
+    "keybindings": [
+      {
+        "key": "tab",
+        "command": "ghostline.acceptAiSuggestion",
+        "when": "inlineSuggestionVisible && !editorTabMovesFocus && !suggestWidgetVisible"
+      }
+    ],
+    "configuration": {
+      "title": "Ghostline",
+      "properties": {
+        "ghostline.githubRepo": {
+          "type": "string",
+          "default": "",
+          "description": "Central dashboard repo in owner/repo format (e.g. myorg/ghostline-dashboard)"
+        },
+        "ghostline.githubUsername": {
+          "type": "string",
+          "default": "",
+          "description": "Your GitHub username"
+        },
+        "ghostline.flushIntervalMinutes": {
+          "type": "number",
+          "default": 5,
+          "description": "How often to flush counts to GitHub (minutes)"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package"
+  },
+  "dependencies": {
+    "@octokit/rest": "^20.0.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.3.0"
+  }
+}

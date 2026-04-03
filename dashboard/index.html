@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ghostline — AI Line Tracker</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <div class="logo">&#x1F47B; Ghostline</div>
+    <div class="last-updated">
+      Last updated: <span id="lastUpdated">—</span>
+      <span class="pulse" id="pulse"></span>
+    </div>
+  </header>
+
+  <main>
+    <section class="summary-cards">
+      <div class="card">
+        <div class="card-label">Total Lines Written</div>
+        <div class="card-value" id="totalLines">—</div>
+      </div>
+      <div class="card accent-ai">
+        <div class="card-label">AI Lines</div>
+        <div class="card-value" id="totalAi">—</div>
+      </div>
+      <div class="card accent-human">
+        <div class="card-label">Human Lines</div>
+        <div class="card-value" id="totalHuman">—</div>
+      </div>
+      <div class="card">
+        <div class="card-label">AI Ratio</div>
+        <div class="card-value" id="aiRatio">—</div>
+      </div>
+    </section>
+
+    <section class="filter-bar">
+      <div class="filter-presets">
+        <button class="filter-btn active" data-filter="last30">Last 30 Days</button>
+        <button class="filter-btn" data-filter="last7">Last 7 Days</button>
+        <button class="filter-btn" data-filter="thisMonth">This Month</button>
+        <button class="filter-btn" data-filter="lastMonth">Last Month</button>
+        <button class="filter-btn" data-filter="allTime">All Time</button>
+        <button class="filter-btn" data-filter="custom">Custom</button>
+      </div>
+      <div class="filter-custom" id="customRange" style="display:none">
+        <label>From <input type="date" id="customFrom" /></label>
+        <label>To <input type="date" id="customTo" /></label>
+        <button class="filter-apply" id="applyCustom">Apply</button>
+      </div>
+    </section>
+
+    <section class="charts">
+      <div class="chart-box">
+        <h2>Trend <span id="trendLabel" class="trend-label"></span></h2>
+        <canvas id="trendChart"></canvas>
+      </div>
+      <div class="chart-box">
+        <h2>AI vs Human Split</h2>
+        <canvas id="splitChart"></canvas>
+      </div>
+    </section>
+
+    <section class="team-table">
+      <h2>Team Breakdown</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Developer</th>
+            <th>IDE</th>
+            <th>Total Lines</th>
+            <th>AI Lines</th>
+            <th>Human Lines</th>
+            <th>AI %</th>
+            <th>Last Active</th>
+          </tr>
+        </thead>
+        <tbody id="teamBody">
+          <tr><td colspan="7" class="loading">Loading...</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

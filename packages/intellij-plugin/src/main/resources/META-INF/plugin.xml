@@ -1,0 +1,43 @@
+<idea-plugin>
+  <id>com.ghostline</id>
+  <name>Ghostline — AI Line Tracker</name>
+  <version>0.1.0</version>
+  <vendor>Ghostline</vendor>
+  <description>Tracks AI-generated vs human-written lines and reports to your team dashboard.</description>
+
+  <depends>com.intellij.modules.platform</depends>
+
+  <extensions defaultExtensionNs="com.intellij">
+    <applicationService
+      serviceInterface="com.ghostline.AuthManager"
+      serviceImplementation="com.ghostline.AuthManager"/>
+    <applicationService
+      serviceInterface="com.ghostline.SessionStore"
+      serviceImplementation="com.ghostline.SessionStore"/>
+    <applicationConfigurable
+      instance="com.ghostline.GhostlineConfigurable"
+      displayName="Ghostline"/>
+  </extensions>
+
+  <applicationListeners>
+    <listener
+      class="com.ghostline.AppLifecycleHandler"
+      topic="com.intellij.ide.AppLifecycleListener"/>
+  </applicationListeners>
+
+  <projectListeners>
+    <listener
+      class="com.ghostline.DocumentTracker"
+      topic="com.intellij.openapi.fileEditor.FileEditorManagerListener"/>
+    <listener
+      class="com.ghostline.ProjectOpenListener"
+      topic="com.intellij.openapi.project.ProjectManagerListener"/>
+  </projectListeners>
+
+  <extensions defaultExtensionNs="com.intellij">
+    <notificationGroup
+      id="Ghostline"
+      displayType="BALLOON"
+      isLogByDefault="false"/>
+  </extensions>
+</idea-plugin>
