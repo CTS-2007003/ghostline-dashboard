@@ -2,31 +2,53 @@ import * as vscode from 'vscode'
 import * as fs from 'fs'
 import * as path from 'path'
 
-const GHOSTLINE_INSTRUCTION = `
-## Ghostline AI Tracking
+const INSTRUCTIONS_MD = `# Ghostline — AI Line Tracking (REQUIRED)
 
-This project tracks AI-generated vs human-written lines of code.
+This file is managed by the Ghostline extension. Do not edit manually.
 
-Your responsibility: each time you generate code the developer accepts,
-update .ghostline/session.json by adding the net new lines you wrote.
+---
 
-Rules:
-- Read the current value first, then add your new lines to it
-- Never reset the count — only ever increment it
-- If .ghostline/session.json does not exist, create it as {"ai_lines": 0}
-- Count net positive lines only (additions minus deletions)
-- Count all accepted lines — inline completions AND chat insertions
+After **every response** in which you write or modify code, you MUST update \`.ghostline/session.json\`.
+Do NOT wait to be asked. Do NOT skip this. Every single code response, no exceptions.
+
+## Steps
+
+1. Read \`.ghostline/session.json\` — create it as \`{"ai_lines": 0}\` if it doesn't exist
+2. Count net lines you wrote: additions minus deletions, positive only
+3. Add that number to \`ai_lines\` and write the file back
+
+## What counts
+- All code you generated that the developer accepted
+- Inline completions and chat-based insertions both count
+- Rewrites: count the new lines
+
+## What does NOT count
+- Lines the developer typed themselves
+- Blank lines you didn't produce
+- Deleted lines
+
+## Format
+\`\`\`json
+{"ai_lines": 42}
+\`\`\`
+One field only. Never reset to 0 — only ever increment.
+
+## Example
+You write 12 lines. Developer accepts.
+- Read \`{"ai_lines": 30}\` → add 12 → write \`{"ai_lines": 42}\`
 `
 
+const INSTRUCTIONS_FILE = '.ghostline/INSTRUCTIONS.md'
 const SESSION_FILE = '.ghostline/session.json'
 
-// AI context files — keyed by filename, value is the section marker
-const AI_CONTEXT_FILES: Record<string, string> = {
-  '.gemini/context.md': '<!-- ghostline -->',
-  '.github/copilot-instructions.md': '<!-- ghostline -->',
-  'CLAUDE.md': '<!-- ghostline -->',
-  '.cursorrules': '# ghostline'
-}
+// Files the old version injected into — clean up the ghostline block from these
+const LEGACY_INJECTED_FILES = [
+  '.gemini/context.md',
+  '.github/copilot-instructions.md',
+  'CLAUDE.md',
+  '.cursorrules',
+  '.windsurfrules',
+]
 
 export function setupWorkspace(context: vscode.ExtensionContext) {
   const folders = vscode.workspace.workspaceFolders
@@ -34,17 +56,18 @@ export function setupWorkspace(context: vscode.ExtensionContext) {
 
   for (const folder of folders) {
     const root = folder.uri.fsPath
-    injectInstructions(root)
+    cleanLegacyInjections(root)
+    writeInstructionsFile(root)
     resetSessionFile(root)
     watchSessionFile(root, context)
   }
 
-  // Handle newly opened folders
   context.subscriptions.push(
     vscode.workspace.onDidChangeWorkspaceFolders(e => {
       for (const folder of e.added) {
         const root = folder.uri.fsPath
-        injectInstructions(root)
+        cleanLegacyInjections(root)
+        writeInstructionsFile(root)
         resetSessionFile(root)
         watchSessionFile(root, context)
       }
@@ -52,36 +75,34 @@ export function setupWorkspace(context: vscode.ExtensionContext) {
   )
 }
 
-function injectInstructions(root: string) {
-  for (const [file, marker] of Object.entries(AI_CONTEXT_FILES)) {
-    const filePath = path.join(root, file)
-    const dir = path.dirname(filePath)
-
+function cleanLegacyInjections(root: string) {
+  for (const relPath of LEGACY_INJECTED_FILES) {
+    const filePath = path.join(root, relPath)
     try {
-      // Ensure directory exists
-      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
-
-      let existing = ''
-      if (fs.existsSync(filePath)) {
-        existing = fs.readFileSync(filePath, 'utf-8')
-        // Already injected — skip
-        if (existing.includes(marker)) continue
-      }
-
-      const injection = `\n${marker}\n${GHOSTLINE_INSTRUCTION.trim()}\n${marker}\n`
-      fs.writeFileSync(filePath, existing + injection, 'utf-8')
-    } catch {
-      // Skip files we can't write (permissions etc.)
-    }
+      if (!fs.existsSync(filePath)) continue
+      const content = fs.readFileSync(filePath, 'utf-8')
+      // Remove everything between <!-- ghostline --> markers (inclusive)
+      const cleaned = content.replace(/<!-- ghostline -->[\s\S]*?<!-- ghostline -->\n*/g, '').trimStart()
+      // Also remove old # ghostline style marker used in .cursorrules
+      const cleaned2 = cleaned.replace(/# ghostline[\s\S]*?# ghostline\n*/g, '').trimStart()
+      if (cleaned2 !== content) fs.writeFileSync(filePath, cleaned2, 'utf-8')
+    } catch {}
   }
+}
+
+function writeInstructionsFile(root: string) {
+  const dir = path.join(root, '.ghostline')
+  try {
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+    fs.writeFileSync(path.join(dir, 'INSTRUCTIONS.md'), INSTRUCTIONS_MD, 'utf-8')
+  } catch {}
 }
 
 function resetSessionFile(root: string) {
   const dir = path.join(root, '.ghostline')
-  const filePath = path.join(dir, 'session.json')
   try {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
-    fs.writeFileSync(filePath, JSON.stringify({ ai_lines: 0 }, null, 2))
+    fs.writeFileSync(path.join(dir, 'session.json'), JSON.stringify({ ai_lines: 0 }, null, 2))
   } catch {}
 }
 
@@ -91,7 +112,6 @@ export function readAndResetSessionFile(root: string): number {
     if (!fs.existsSync(filePath)) return 0
     const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'))
     const lines = data.ai_lines ?? 0
-    // Reset for next flush cycle
     fs.writeFileSync(filePath, JSON.stringify({ ai_lines: 0 }, null, 2))
     return lines
   } catch {
@@ -100,10 +120,8 @@ export function readAndResetSessionFile(root: string): number {
 }
 
 function watchSessionFile(root: string, context: vscode.ExtensionContext) {
-  const filePath = path.join(root, SESSION_FILE)
   const watcher = vscode.workspace.createFileSystemWatcher(
     new vscode.RelativePattern(root, SESSION_FILE)
   )
-  // No action needed on change — flusher reads it on flush
   context.subscriptions.push(watcher)
 }
