@@ -104,7 +104,14 @@ function renderCards(totals) {
   document.getElementById('totalAi').textContent = fmt(totals.ai)
   document.getElementById('totalHuman').textContent = fmt(human)
   document.getElementById('aiRatio').textContent = pct + '%'
-  document.getElementById('lastUpdated').textContent = timeAgo(summaryData.generated_at)
+
+  // Show when a developer last actually synced, not when the dashboard fetched
+  const lastSync = summaryData.developers
+    .map(d => d.last_updated)
+    .filter(Boolean)
+    .sort()
+    .at(-1)
+  document.getElementById('lastUpdated').textContent = lastSync ? timeAgo(lastSync) : 'no syncs yet'
 }
 
 function renderTeamTable(devs, range) {
@@ -212,12 +219,24 @@ async function fetchAll() {
 }
 
 async function refresh() {
+  const pulse = document.getElementById('pulse')
+  pulse.style.background = 'var(--muted)'  // grey while loading
+
   try {
-    summaryData = await fetchAll()
+    const fresh = await fetchAll()
+    summaryData = fresh  // only swap on success — stale data stays visible during load
     applyFilter()
+    pulse.style.background = ''  // back to CSS animation (green)
   } catch (e) {
-    console.warn('Ghostline: failed to refresh —', e.message)
-    document.getElementById('lastUpdated').textContent = 'unavailable'
+    console.warn('Ghostline:', e.message)
+    pulse.style.background = '#f85149'  // red dot on error
+    if (!summaryData) {
+      const msg = e.message.includes('index.json')
+        ? 'no data yet — install the extension and sync'
+        : `fetch error: ${e.message}`
+      document.getElementById('lastUpdated').textContent = msg
+    }
+    // if stale data exists, leave it on screen — only dot turns red
   }
 }
 
