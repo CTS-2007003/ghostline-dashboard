@@ -1,8 +1,9 @@
 import * as vscode from 'vscode'
-import { startTracking, flagNextChangeAsAi } from './tracker'
+import { startTracking, getSession } from './tracker'
 import { flush } from './flusher'
 import { setToken } from './auth'
 import { runOnboardingIfNeeded } from './onboarding'
+import { setupWorkspace } from './workspace'
 
 let flushTimer: NodeJS.Timeout | undefined
 let statusBar: vscode.StatusBarItem
@@ -15,33 +16,30 @@ export async function activate(context: vscode.ExtensionContext) {
   statusBar.show()
   context.subscriptions.push(statusBar)
 
-  // Register commands
   context.subscriptions.push(
     vscode.commands.registerCommand('ghostline.setToken', () => setToken(context)),
     vscode.commands.registerCommand('ghostline.showStatus', showStatus),
-    // This command is bound to Tab (when inlineSuggestionVisible) via package.json keybindings.
-    // It flags the next document change as AI, then lets VS Code commit the inline suggestion.
-    vscode.commands.registerCommand('ghostline.acceptAiSuggestion', async () => {
-      flagNextChangeAsAi()
-      await vscode.commands.executeCommand('editor.action.inlineSuggest.commit')
-    }),
     vscode.commands.registerCommand('ghostline.activate', () => {
       vscode.window.showInformationMessage('Ghostline is active and tracking.')
       runOnboardingIfNeeded(context)
     })
   )
 
-  // Start tracking document changes
+  // Inject AI instruction files + reset session.json for this session
+  setupWorkspace(context)
+
+  // Track total lines written
   startTracking(context)
 
-  // Run first-time setup wizard if not yet configured (non-blocking)
+  // First-time setup wizard
   runOnboardingIfNeeded(context)
 
   // Flush on a timer
-  const intervalMs = vscode.workspace.getConfiguration('ghostline').get<number>('flushIntervalMinutes', 5) * 60 * 1000
+  const intervalMs = vscode.workspace.getConfiguration('ghostline')
+    .get<number>('flushIntervalMinutes', 5) * 60 * 1000
   flushTimer = setInterval(() => flush(context), intervalMs)
 
-  // Flush when window loses focus (user switches away / closes laptop)
+  // Flush when window loses focus
   context.subscriptions.push(
     vscode.window.onDidChangeWindowState(state => {
       if (!state.focused) flush(context)
@@ -55,11 +53,8 @@ export function deactivate(context?: vscode.ExtensionContext) {
 }
 
 function showStatus() {
-  const { getSession } = require('./tracker') as typeof import('./tracker')
   const s = getSession()
-  const humanLines = s.totalLines - s.aiLines
-  const aiPct = s.totalLines > 0 ? Math.round((s.aiLines / s.totalLines) * 100) : 0
   vscode.window.showInformationMessage(
-    `Ghostline — This session: ${s.totalLines} lines total | AI: ${s.aiLines} (${aiPct}%) | Human: ${humanLines}`
+    `Ghostline — This session: ${s.totalLines} total lines written`
   )
 }

@@ -15,23 +15,10 @@ class DocumentTracker : FileEditorManagerListener {
 
     document.addDocumentListener(object : DocumentListener {
       override fun documentChanged(event: DocumentEvent) {
-        val newText = event.newFragment.toString()
-        val oldText = event.oldFragment.toString()
-
-        val linesAdded = newText.count { it == '\n' }
-        val linesRemoved = oldText.count { it == '\n' }
+        val linesAdded = event.newFragment.count { it == '\n' }
+        val linesRemoved = event.oldFragment.count { it == '\n' }
         val net = linesAdded - linesRemoved
-
-        if (net <= 0) return
-
-        val session = SessionStore.getInstance()
-        session.totalLines += net
-
-        // AI detection: flag set by action interceptor
-        if (AiAcceptanceFlag.isPending()) {
-          session.aiLines += net
-          AiAcceptanceFlag.consume()
-        }
+        if (net > 0) SessionStore.getInstance().totalLines += net
       }
     })
   }

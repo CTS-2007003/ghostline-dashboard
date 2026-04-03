@@ -1,6 +1,7 @@
 import * as vscode from 'vscode'
 import { Octokit } from '@octokit/rest'
 import { getSession, resetSession } from './tracker'
+import { readAndResetSessionFile } from './workspace'
 
 interface DevData {
   username: string
@@ -36,7 +37,13 @@ async function readFile(octokit: Octokit, owner: string, repo: string, path: str
 
 export async function flush(context: vscode.ExtensionContext) {
   const session = getSession()
-  if (session.totalLines === 0 && session.aiLines === 0) return
+
+  // Read AI lines from session.json (written by AI assistant) and reset it
+  const folders = vscode.workspace.workspaceFolders
+  const aiLines = folders?.reduce((sum, f) =>
+    sum + readAndResetSessionFile(f.uri.fsPath), 0) ?? 0
+
+  if (session.totalLines === 0) return
 
   const { repo, username } = config()
   if (!repo || !username) return
@@ -60,20 +67,22 @@ export async function flush(context: vscode.ExtensionContext) {
   }
 
   current.total_lines_written += session.totalLines
-  current.total_ai_lines += session.aiLines
+  current.total_ai_lines += Math.min(aiLines, session.totalLines) // AI can't exceed total
   current.last_updated = new Date().toISOString()
 
-  // Upsert today's entry in history
   const todayStr = today()
   const historyEntry = current.history.find(h => h.date === todayStr)
   if (historyEntry) {
     historyEntry.total += session.totalLines
-    historyEntry.ai += session.aiLines
+    historyEntry.ai += Math.min(aiLines, session.totalLines)
   } else {
-    current.history.push({ date: todayStr, total: session.totalLines, ai: session.aiLines })
+    current.history.push({
+      date: todayStr,
+      total: session.totalLines,
+      ai: Math.min(aiLines, session.totalLines)
+    })
   }
 
-  // Keep last 90 days
   current.history = current.history.slice(-90)
 
   await octokit.repos.createOrUpdateFileContents({
@@ -86,19 +95,15 @@ export async function flush(context: vscode.ExtensionContext) {
   })
 
   await ensureInIndex(octokit, owner, repoName, username)
-
   resetSession()
 }
 
 async function ensureInIndex(octokit: Octokit, owner: string, repo: string, username: string) {
   const { content: existing, sha } = await readFile(octokit, owner, repo, 'data/index.json')
   const index: string[] = existing ?? []
-
-  if (index.includes(username)) return  // already registered, no write needed
-
+  if (index.includes(username)) return
   index.push(username)
   index.sort()
-
   await octokit.repos.createOrUpdateFileContents({
     owner,
     repo,

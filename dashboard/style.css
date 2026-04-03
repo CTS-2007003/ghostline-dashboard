@@ -36,6 +36,22 @@ header {
   letter-spacing: -0.5px;
 }
 
+.header-meta {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.tz-badge {
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 8px;
+  letter-spacing: 0.3px;
+}
+
 .last-updated {
   color: var(--muted);
   font-size: 13px;
@@ -179,37 +195,6 @@ main {
   opacity: 0.85;
 }
 
-.trend-label {
-  font-size: 11px;
-  color: var(--muted);
-  font-weight: 400;
-  text-transform: none;
-  letter-spacing: 0;
-  margin-left: 6px;
-}
-
-/* Charts */
-.charts {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 16px;
-}
-
-.chart-box {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 24px;
-}
-
-.chart-box h2 {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--muted);
-  margin-bottom: 16px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
 
 /* Team Table */
 .team-table {
@@ -287,5 +272,4 @@ tr:hover td { background: rgba(255,255,255,0.03); }
 
 @media (max-width: 900px) {
   .summary-cards { grid-template-columns: repeat(2, 1fr); }
-  .charts { grid-template-columns: 1fr; }
 }

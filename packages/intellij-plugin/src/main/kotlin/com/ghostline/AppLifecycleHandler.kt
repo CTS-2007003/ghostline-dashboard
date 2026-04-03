@@ -10,8 +10,6 @@ class AppLifecycleHandler : AppLifecycleListener {
   private val scheduler = Executors.newSingleThreadScheduledExecutor()
 
   override fun appStarted() {
-    AiActionInterceptor.register()
-
     val intervalMinutes = GhostlineSettings.getInstance().flushIntervalMinutes.toLong()
     scheduledFlush = scheduler.scheduleAtFixedRate(
       { GitHubFlusher.flush() },

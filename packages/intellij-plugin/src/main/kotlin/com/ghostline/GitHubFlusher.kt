@@ -4,6 +4,7 @@ import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.reflect.TypeToken
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.project.ProjectManager
 import com.intellij.util.net.ssl.CertificateManager
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -36,7 +37,7 @@ object GitHubFlusher {
 
   fun flush() {
     val session = SessionStore.getInstance()
-    if (session.totalLines == 0 && session.aiLines == 0) return
+    if (session.totalLines == 0) return
 
     val settings = GhostlineSettings.getInstance()
     val token = AuthManager.getInstance().getToken() ?: return
@@ -44,7 +45,12 @@ object GitHubFlusher {
     val (owner, repo) = settings.githubRepo.split("/").takeIf { it.size == 2 } ?: return
 
     val totalSnap = session.totalLines
-    val aiSnap = session.aiLines
+
+    // Collect AI lines from all open projects' session.json files
+    val rawAiLines = ProjectManager.getInstance().openProjects
+      .mapNotNull { it.basePath }
+      .sumOf { WorkspaceInstructor.readAndResetSessionFile(it) }
+    val aiSnap = minOf(rawAiLines, totalSnap) // AI lines can never exceed total
 
     ApplicationManager.getApplication().executeOnPooledThread {
       try {

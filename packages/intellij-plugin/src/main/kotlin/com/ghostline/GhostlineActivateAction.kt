@@ -8,8 +8,8 @@ class GhostlineActivateAction : AnAction("Ghostline: Activate") {
   override fun actionPerformed(e: AnActionEvent) {
     val project = e.project ?: return
 
-    // Re-register AI action interceptor in case it missed startup
-    AiActionInterceptor.register()
+    // Re-inject workspace instructions in case they were missed at startup
+    WorkspaceInstructor.setup(project)
 
     // Re-run onboarding if not configured
     OnboardingService.checkAndPrompt(project)

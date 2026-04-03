@@ -19,19 +19,8 @@
         "title": "Ghostline: Show Status"
       },
       {
-        "command": "ghostline.acceptAiSuggestion",
-        "title": "Ghostline: Accept AI Suggestion"
-      },
-      {
         "command": "ghostline.activate",
         "title": "Ghostline: Activate"
-      }
-    ],
-    "keybindings": [
-      {
-        "key": "tab",
-        "command": "ghostline.acceptAiSuggestion",
-        "when": "inlineSuggestionVisible && !editorTabMovesFocus && !suggestWidgetVisible"
       }
     ],
     "configuration": {
