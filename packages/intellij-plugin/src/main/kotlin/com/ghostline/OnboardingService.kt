@@ -6,6 +6,7 @@ import com.intellij.openapi.options.ShowSettingsUtil
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.project.ProjectManagerListener
 import com.intellij.openapi.ui.Messages
+import com.intellij.util.net.ssl.CertificateManager
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.BufferedReader
@@ -38,7 +39,10 @@ object OnboardingService {
    * Returns null on success, an error message on failure.
    */
   fun validateAccess(token: String, repo: String): String? {
-    val client = OkHttpClient()
+    val cm = CertificateManager.getInstance()
+    val client = OkHttpClient.Builder()
+      .sslSocketFactory(cm.sslContext.socketFactory, cm.trustManager)
+      .build()
     val req = Request.Builder()
       .url("https://api.github.com/repos/$repo")
       .header("Authorization", "token $token")

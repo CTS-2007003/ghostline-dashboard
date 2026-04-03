@@ -3,8 +3,8 @@ package com.ghostline
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.reflect.TypeToken
-import com.intellij.openapi.components.service
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.util.net.ssl.CertificateManager
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -25,7 +25,12 @@ data class DevData(
 )
 
 object GitHubFlusher {
-  private val client = OkHttpClient()
+  private val client = run {
+    val cm = CertificateManager.getInstance()
+    OkHttpClient.Builder()
+      .sslSocketFactory(cm.sslContext.socketFactory, cm.trustManager)
+      .build()
+  }
   private val gson: Gson = GsonBuilder().setPrettyPrinting().create()
   private val JSON = "application/json".toMediaType()
 
