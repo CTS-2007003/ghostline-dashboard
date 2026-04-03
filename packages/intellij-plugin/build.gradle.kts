@@ -39,4 +39,8 @@ tasks {
     sinceBuild.set("251")
     // untilBuild not set — compatible with all future versions
   }
+  // Not needed in CI — just indexes settings for the IDE search bar
+  buildSearchableOptions {
+    enabled = false
+  }
 }
