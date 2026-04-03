@@ -37,7 +37,7 @@ jobs:
         with:
           name: ghostline-vscode
           path: packages/vscode-extension/*.vsix
-          retention-days: 30
+          retention-days: 3
 
       - name: Attach to release
         if: github.event_name == 'release'
@@ -70,7 +70,7 @@ jobs:
         with:
           name: ghostline-intellij
           path: packages/intellij-plugin/build/distributions/*.zip
-          retention-days: 30
+          retention-days: 3
 
       - name: Attach to release
         if: github.event_name == 'release'
