@@ -1,7 +1,7 @@
 plugins {
   id("java")
-  id("org.jetbrains.kotlin.jvm") version "1.9.21"
-  id("org.jetbrains.intellij") version "1.16.1"
+  id("org.jetbrains.kotlin.jvm") version "2.1.0"
+  id("org.jetbrains.intellij") version "1.17.4"
 }
 
 group = "com.ghostline"
@@ -18,8 +18,17 @@ dependencies {
 
 intellij {
   version.set("2025.1")
-  type.set("IC") // IntelliJ IDEA Community
+  type.set("IC")
   plugins.set(listOf())
+}
+
+// Prevent Kotlin stdlib conflict with the version bundled in IntelliJ
+configurations.all {
+  resolutionStrategy.eachDependency {
+    if (requested.group == "org.jetbrains.kotlin") {
+      useVersion("2.1.0")
+    }
+  }
 }
 
 tasks {
@@ -27,7 +36,7 @@ tasks {
     kotlinOptions.jvmTarget = "17"
   }
   patchPluginXml {
-    sinceBuild.set("233")
-    // untilBuild not set — compatible with all future IntelliJ versions
+    sinceBuild.set("251")
+    // untilBuild not set — compatible with all future versions
   }
 }
