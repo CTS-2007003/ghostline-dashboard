@@ -24,6 +24,10 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('ghostline.acceptAiSuggestion', async () => {
       flagNextChangeAsAi()
       await vscode.commands.executeCommand('editor.action.inlineSuggest.commit')
+    }),
+    vscode.commands.registerCommand('ghostline.activate', () => {
+      vscode.window.showInformationMessage('Ghostline is active and tracking.')
+      runOnboardingIfNeeded(context)
     })
   )
 

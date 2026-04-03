@@ -17,7 +17,7 @@ dependencies {
 }
 
 intellij {
-  version.set("2023.3")
+  version.set("2025.1")
   type.set("IC") // IntelliJ IDEA Community
   plugins.set(listOf())
 }
@@ -28,6 +28,6 @@ tasks {
   }
   patchPluginXml {
     sinceBuild.set("233")
-    untilBuild.set("241.*")
+    // untilBuild not set — compatible with all future IntelliJ versions
   }
 }

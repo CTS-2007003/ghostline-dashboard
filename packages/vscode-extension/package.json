@@ -6,7 +6,7 @@
   "publisher": "ghostline",
   "engines": { "vscode": "^1.85.0" },
   "categories": ["Other"],
-  "activationEvents": ["onStartupFinished"],
+  "activationEvents": ["*"],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
@@ -21,6 +21,10 @@
       {
         "command": "ghostline.acceptAiSuggestion",
         "title": "Ghostline: Accept AI Suggestion"
+      },
+      {
+        "command": "ghostline.activate",
+        "title": "Ghostline: Activate"
       }
     ],
     "keybindings": [

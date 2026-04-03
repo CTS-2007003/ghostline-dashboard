@@ -40,4 +40,14 @@
       displayType="BALLOON"
       isLogByDefault="false"/>
   </extensions>
+
+  <actions>
+    <action
+      id="com.ghostline.Activate"
+      class="com.ghostline.GhostlineActivateAction"
+      text="Ghostline: Activate"
+      description="Activate Ghostline and run setup if needed">
+      <add-to-group group-id="ToolsMenu" anchor="last"/>
+    </action>
+  </actions>
 </idea-plugin>
