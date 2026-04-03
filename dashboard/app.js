@@ -1,4 +1,4 @@
-const GITHUB_RAW = 'https://raw.githubusercontent.com/cts-2007003/ghostline-dashboard/main'
+const GITHUB_RAW = 'https://raw.githubusercontent.com/cts-2007003/ghostline-dashboard/master'
 const INDEX_URL = `${GITHUB_RAW}/data/index.json`
 const REFRESH_INTERVAL = 60_000
 
