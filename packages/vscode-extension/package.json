@@ -36,6 +36,11 @@
           "default": "",
           "description": "Your GitHub username"
         },
+        "ghostline.displayName": {
+          "type": "string",
+          "default": "",
+          "description": "Your display name shown on the team dashboard (e.g. your real name or nickname)"
+        },
         "ghostline.flushIntervalMinutes": {
           "type": "number",
           "default": 5,

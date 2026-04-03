@@ -76,7 +76,7 @@ async function wizard(context: vscode.ExtensionContext) {
   // ── Step 3: Username (auto-detect from git config) ───────────────────────
   const detectedUsername = await detectGitUsername()
   const username = await vscode.window.showInputBox({
-    title: 'Ghostline Setup (3/3) — Your GitHub Username',
+    title: 'Ghostline Setup (3/4) — Your GitHub Username',
     prompt: 'Your GitHub username (used to name your data file)',
     value: detectedUsername ?? '',
     placeHolder: 'your-github-username',
@@ -84,6 +84,17 @@ async function wizard(context: vscode.ExtensionContext) {
     validateInput: v => (v ? null : 'Required')
   })
   if (!username) return
+
+  // ── Step 4: Display name ─────────────────────────────────────────────────
+  const displayName = await vscode.window.showInputBox({
+    title: 'Ghostline Setup (4/4) — Your Display Name',
+    prompt: 'Name shown on the team dashboard (your real name or nickname)',
+    value: detectedUsername ?? '',
+    placeHolder: 'e.g. Alex or Alex Kumar',
+    ignoreFocusOut: true,
+    validateInput: v => (v ? null : 'Required')
+  })
+  if (!displayName) return
 
   // ── Validate ─────────────────────────────────────────────────────────────
   await vscode.window.withProgress(
@@ -99,6 +110,7 @@ async function wizard(context: vscode.ExtensionContext) {
       await context.secrets.store('ghostline.githubToken', token)
       await vscode.workspace.getConfiguration('ghostline').update('githubRepo', repo, true)
       await vscode.workspace.getConfiguration('ghostline').update('githubUsername', username, true)
+      await vscode.workspace.getConfiguration('ghostline').update('displayName', displayName, true)
 
       const [repoOwner, repoName] = repo.split('/')
       const dashboardUrl = `https://${repoOwner}.github.io/${repoName}`

@@ -18,6 +18,7 @@ data class HistoryEntry(val date: String, val total: Int, val ai: Int)
 
 data class DevData(
   val username: String,
+  var display_name: String = "",
   val ide: String = "intellij",
   var total_lines_written: Int = 0,
   var total_ai_lines: Int = 0,
@@ -57,7 +58,10 @@ object GitHubFlusher {
         val path = "data/$username.json"
         val (existing, sha) = readFile(token, owner, repo, path)
 
-        val data = existing ?: DevData(username = username)
+        val displayName = settings.displayName.ifBlank { username }
+        val data = existing ?: DevData(username = username, display_name = displayName)
+        // Always keep display_name in sync with current setting
+        data.display_name = displayName
         data.total_lines_written += totalSnap
         data.total_ai_lines += aiSnap
         data.last_updated = Instant.now().toString()

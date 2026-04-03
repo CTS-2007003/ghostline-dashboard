@@ -11,6 +11,7 @@ class GhostlineConfigurable : Configurable {
   private val settings = GhostlineSettings.getInstance()
   private var repoField: JBTextField? = null
   private var usernameField: JBTextField? = null
+  private var displayNameField: JBTextField? = null
   private var intervalField: JBTextField? = null
   private var rootPanel: JComponent? = null
 
@@ -36,6 +37,15 @@ class GhostlineConfigurable : Configurable {
             .applyToComponent {
               text = settings.githubUsername.ifBlank { detectedUsername ?: "" }
               usernameField = this
+            }
+        }
+        row("Display name:") {
+          textField()
+            .columns(20)
+            .comment("Name shown on the team dashboard (your real name or nickname)")
+            .applyToComponent {
+              text = settings.displayName.ifBlank { detectedUsername ?: "" }
+              displayNameField = this
             }
         }
         row {
@@ -92,18 +102,21 @@ class GhostlineConfigurable : Configurable {
   override fun isModified(): Boolean {
     return repoField?.text?.trim() != settings.githubRepo ||
       usernameField?.text?.trim() != settings.githubUsername ||
+      displayNameField?.text?.trim() != settings.displayName ||
       intervalField?.text?.toIntOrNull() != settings.flushIntervalMinutes
   }
 
   override fun apply() {
     settings.githubRepo = repoField?.text?.trim() ?: ""
     settings.githubUsername = usernameField?.text?.trim() ?: ""
+    settings.displayName = displayNameField?.text?.trim() ?: ""
     settings.flushIntervalMinutes = intervalField?.text?.toIntOrNull()?.coerceIn(1, 60) ?: 5
   }
 
   override fun reset() {
     repoField?.text = settings.githubRepo
     usernameField?.text = settings.githubUsername
+    displayNameField?.text = settings.displayName
     intervalField?.text = settings.flushIntervalMinutes.toString()
   }
 }

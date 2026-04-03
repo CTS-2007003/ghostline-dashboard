@@ -123,7 +123,7 @@ function renderTeamTable(devs, range) {
     const pct = total > 0 ? Math.round((ai / total) * 100) : 0
     return `
       <tr>
-        <td><strong>${dev.username}</strong></td>
+        <td><strong>${dev.display_name || dev.username}</strong></td>
         <td>${fmt(total)}</td>
         <td style="color:var(--ai-light)">${fmt(ai)}</td>
         <td style="color:var(--human-light)">${fmt(human)}</td>
