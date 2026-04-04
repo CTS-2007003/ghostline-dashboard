@@ -222,15 +222,16 @@ function initFilterBar() {
 // ── Fetch & main loop ─────────────────────────────────────────────────────────
 
 async function fetchAll() {
-  const bust = '?t=' + Date.now()
+  // cache: 'no-store' bypasses both browser cache and CDN cache
+  const opts = { cache: 'no-store' }
 
-  const idxRes = await fetch(INDEX_URL + bust)
+  const idxRes = await fetch(INDEX_URL, opts)
   if (!idxRes.ok) throw new Error('No index.json yet — no developers have synced.')
   const usernames = await idxRes.json()
 
   const devFiles = await Promise.all(
     usernames.map(u =>
-      fetch(`${GITHUB_RAW}/data/${u}.json${bust}`)
+      fetch(`${GITHUB_RAW}/data/${u}.json`, opts)
         .then(r => r.ok ? r.json() : null)
         .catch(() => null)
     )
@@ -248,26 +249,27 @@ async function fetchAll() {
 async function refresh() {
   const pulse = document.getElementById('pulse')
   const btn = document.getElementById('refreshBtn')
+  const lastUpdatedEl = document.getElementById('lastUpdated')
+
   pulse.style.background = 'var(--muted)'
-  if (btn) btn.disabled = true
+  if (btn) { btn.disabled = true; btn.textContent = '…' }
+  lastUpdatedEl.textContent = 'Refreshing…'
 
   try {
     const fresh = await fetchAll()
     summaryData = fresh
     populateTeamFilter(summaryData.developers)
-    applyFilter()
+    applyFilter()  // renderCards updates lastUpdated with real value
     pulse.style.background = ''
   } catch (e) {
     console.warn('Ghostline:', e.message)
     pulse.style.background = '#f85149'
-    if (!summaryData) {
-      const msg = e.message.includes('index.json')
-        ? 'no data yet — install the extension and sync'
-        : `fetch error: ${e.message}`
-      document.getElementById('lastUpdated').textContent = msg
-    }
+    const msg = !summaryData
+      ? (e.message.includes('index.json') ? 'no data yet — install the extension and sync' : `fetch error: ${e.message}`)
+      : 'refresh failed — showing last known data'
+    lastUpdatedEl.textContent = msg
   } finally {
-    if (btn) btn.disabled = false
+    if (btn) { btn.disabled = false; btn.textContent = '↻' }
   }
 }
 
@@ -281,6 +283,15 @@ document.getElementById('teamFilter').addEventListener('change', e => {
   applyFilter()
 })
 document.getElementById('refreshBtn').addEventListener('click', refresh)
+document.getElementById('clearCacheBtn').addEventListener('click', async () => {
+  // Clear any service worker caches
+  if ('caches' in window) {
+    const keys = await caches.keys()
+    await Promise.all(keys.map(k => caches.delete(k)))
+  }
+  // Hard reload — forces GitHub Pages to serve fresh HTML, JS, CSS
+  window.location.replace(window.location.href.split('?')[0] + '?v=' + Date.now())
+})
 refresh()
 
 // Pause fetching when tab is hidden, resume (and refresh immediately) when visible again
