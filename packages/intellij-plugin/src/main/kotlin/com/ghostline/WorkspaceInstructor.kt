@@ -55,7 +55,7 @@ You write 12 lines. Developer accepts.
     val root = project.basePath ?: return
     cleanLegacyInjections(root)
     writeInstructionsFile(root)
-    resetSessionFile(root)
+    initSessionFile(root)
   }
 
   private fun cleanLegacyInjections(root: String) {
@@ -86,10 +86,12 @@ You write 12 lines. Developer accepts.
     } catch (_: Exception) {}
   }
 
-  fun resetSessionFile(root: String) {
+  // Only creates session.json if it doesn't already exist — never resets AI lines on startup
+  fun initSessionFile(root: String) {
     val dir = File(root, ".ghostline")
     val file = File(dir, "session.json")
     try {
+      if (file.exists()) return
       dir.mkdirs()
       file.writeText("""{"ai_lines": 0}""")
     } catch (_: Exception) {}

@@ -22,6 +22,6 @@ class AppLifecycleHandler : AppLifecycleListener {
   override fun appWillBeClosed(isRestart: Boolean) {
     scheduledFlush?.cancel(false)
     scheduler.shutdown()
-    GitHubFlusher.flush()
+    GitHubFlusher.flush(synchronous = true)
   }
 }

@@ -15,7 +15,11 @@ interface DevData {
 }
 
 function today(): string {
-  return new Date().toISOString().slice(0, 10)
+  const d = new Date()
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
 }
 
 function config() {
@@ -39,88 +43,109 @@ async function readFile(octokit: Octokit, owner: string, repo: string, path: str
   }
 }
 
+// Prevents two concurrent flushes from double-counting lines
+let flushing = false
+
 export async function flush(context: vscode.ExtensionContext) {
-  const session = getSession()
+  if (flushing) return
+  flushing = true
 
-  // Read AI lines from session.json (written by AI assistant) and reset it
-  const folders = vscode.workspace.workspaceFolders
-  const aiLines = folders?.reduce((sum, f) =>
-    sum + readAndResetSessionFile(f.uri.fsPath), 0) ?? 0
+  try {
+    // Read AI lines BEFORE the early-exit check — the AI may have written lines
+    // even if the developer typed nothing this interval
+    const folders = vscode.workspace.workspaceFolders
+    const aiLines = folders?.reduce((sum, f) =>
+      sum + readAndResetSessionFile(f.uri.fsPath), 0) ?? 0
 
-  if (session.totalLines === 0) return
+    const session = getSession()
+    if (session.totalLines === 0 && aiLines === 0) return
 
-  const { repo, username, displayName, team } = config()
-  if (!repo || !username) return
+    const { repo, username, displayName, team } = config()
+    if (!repo || !username) return
 
-  const token = await context.secrets.get('ghostline.githubToken')
-  if (!token) return
+    const token = await context.secrets.get('ghostline.githubToken')
+    if (!token) return
 
-  const [owner, repoName] = repo.split('/')
-  const octokit = new Octokit({ auth: token })
-  const path = `data/${username}.json`
+    // Snapshot and reset before network calls so lines typed during the flush
+    // aren't silently dropped on resetSession() at the end
+    const totalSnap = session.totalLines
+    resetSession()
 
-  const { content: existing, sha } = await readFile(octokit, owner, repoName, path)
+    const [owner, repoName] = repo.split('/')
+    const octokit = new Octokit({ auth: token })
+    const path = `data/${username}.json`
 
-  const current: DevData = existing ?? {
-    username,
-    display_name: displayName || username,
-    team: team || '',
-    ides: ['vscode'],
-    total_lines_written: 0,
-    total_ai_lines: 0,
-    history: [],
-    last_updated: ''
-  }
+    const { content: existing, sha } = await readFile(octokit, owner, repoName, path)
 
-  if (displayName) current.display_name = displayName
-  if (team) current.team = team
-  if (!current.ides) current.ides = []
-  if (!current.ides.includes('vscode')) current.ides.push('vscode')
+    const current: DevData = existing ?? {
+      username,
+      display_name: displayName || username,
+      team: team || '',
+      ides: ['vscode'],
+      total_lines_written: 0,
+      total_ai_lines: 0,
+      history: [],
+      last_updated: ''
+    }
 
-  current.total_lines_written += session.totalLines
-  current.total_ai_lines += Math.min(aiLines, session.totalLines) // AI can't exceed total
-  current.last_updated = new Date().toISOString()
+    if (displayName) current.display_name = displayName
+    if (team) current.team = team
+    if (!current.ides) current.ides = []
+    if (!current.ides.includes('vscode')) current.ides.push('vscode')
 
-  const todayStr = today()
-  const historyEntry = current.history.find(h => h.date === todayStr)
-  if (historyEntry) {
-    historyEntry.total += session.totalLines
-    historyEntry.ai += Math.min(aiLines, session.totalLines)
-  } else {
-    current.history.push({
-      date: todayStr,
-      total: session.totalLines,
-      ai: Math.min(aiLines, session.totalLines)
+    const aiSnap = Math.min(aiLines, totalSnap)
+    current.total_lines_written += totalSnap
+    current.total_ai_lines += aiSnap
+    current.last_updated = new Date().toISOString()
+
+    const todayStr = today()
+    const historyEntry = current.history.find(h => h.date === todayStr)
+    if (historyEntry) {
+      historyEntry.total += totalSnap
+      historyEntry.ai += aiSnap
+    } else {
+      current.history.push({ date: todayStr, total: totalSnap, ai: aiSnap })
+    }
+
+    current.history = current.history.slice(-90)
+
+    await octokit.repos.createOrUpdateFileContents({
+      owner,
+      repo: repoName,
+      path,
+      message: `ghostline: sync ${username} [skip ci]`,
+      content: Buffer.from(JSON.stringify(current, null, 2)).toString('base64'),
+      sha
     })
+
+    await ensureInIndex(octokit, owner, repoName, username)
+  } catch {
+    // Silent fail — will retry on next flush
+  } finally {
+    flushing = false
   }
-
-  current.history = current.history.slice(-90)
-
-  await octokit.repos.createOrUpdateFileContents({
-    owner,
-    repo: repoName,
-    path,
-    message: `ghostline: sync ${username} [skip ci]`,
-    content: Buffer.from(JSON.stringify(current, null, 2)).toString('base64'),
-    sha
-  })
-
-  await ensureInIndex(octokit, owner, repoName, username)
-  resetSession()
 }
 
 async function ensureInIndex(octokit: Octokit, owner: string, repo: string, username: string) {
-  const { content: existing, sha } = await readFile(octokit, owner, repo, 'data/index.json')
-  const index: string[] = existing ?? []
-  if (index.includes(username)) return
-  index.push(username)
-  index.sort()
-  await octokit.repos.createOrUpdateFileContents({
-    owner,
-    repo,
-    path: 'data/index.json',
-    message: `ghostline: register ${username} [skip ci]`,
-    content: Buffer.from(JSON.stringify(index, null, 2)).toString('base64'),
-    sha
-  })
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const { content: existing, sha } = await readFile(octokit, owner, repo, 'data/index.json')
+      const index: string[] = existing ?? []
+      if (index.includes(username)) return
+      index.push(username)
+      index.sort()
+      await octokit.repos.createOrUpdateFileContents({
+        owner,
+        repo,
+        path: 'data/index.json',
+        message: `ghostline: register ${username} [skip ci]`,
+        content: Buffer.from(JSON.stringify(index, null, 2)).toString('base64'),
+        sha
+      })
+      return
+    } catch (e: any) {
+      if (attempt === 0 && e?.status === 422) continue // SHA conflict — retry once
+      return // give up silently on second failure
+    }
+  }
 }

@@ -37,7 +37,8 @@ object GitHubFlusher {
   private val gson: Gson = GsonBuilder().setPrettyPrinting().create()
   private val JSON = "application/json".toMediaType()
 
-  fun flush() {
+  @Synchronized
+  fun flush(synchronous: Boolean = false) {
     val session = SessionStore.getInstance()
     if (session.totalLines == 0) return
 
@@ -52,9 +53,13 @@ object GitHubFlusher {
     val rawAiLines = ProjectManager.getInstance().openProjects
       .mapNotNull { it.basePath }
       .sumOf { WorkspaceInstructor.readAndResetSessionFile(it) }
-    val aiSnap = minOf(rawAiLines, totalSnap) // AI lines can never exceed total
+    val aiSnap = minOf(rawAiLines, totalSnap)
 
-    ApplicationManager.getApplication().executeOnPooledThread {
+    // Reset before dispatching — prevents a second concurrent flush from
+    // double-counting the same lines if the timer and appWillBeClosed overlap
+    session.reset()
+
+    val work = Runnable {
       try {
         val path = "data/$username.json"
         val (existing, sha) = readFile(token, owner, repo, path)
@@ -78,56 +83,66 @@ object GitHubFlusher {
           data.history.add(HistoryEntry(today, totalSnap, aiSnap))
         }
 
-        // Keep last 90 days
         if (data.history.size > 90) data.history = data.history.takeLast(90).toMutableList()
 
         writeFile(token, owner, repo, path, data, sha)
         ensureInIndex(token, owner, repo, data.username)
-        session.reset()
       } catch (e: Exception) {
         // Silent fail — will retry on next flush
       }
     }
+
+    if (synchronous) {
+      work.run()
+    } else {
+      ApplicationManager.getApplication().executeOnPooledThread(work)
+    }
   }
 
-  private fun ensureInIndex(token: String, owner: String, repo: String, username: String) {
-    val req = Request.Builder()
-      .url("https://api.github.com/repos/$owner/$repo/contents/data/index.json")
-      .header("Authorization", "token $token")
-      .header("Accept", "application/vnd.github.v3+json")
-      .get().build()
+  private fun ensureInIndex(token: String, owner: String, repo: String, username: String, retries: Int = 1) {
+    try {
+      val getReq = Request.Builder()
+        .url("https://api.github.com/repos/$owner/$repo/contents/data/index.json")
+        .header("Authorization", "token $token")
+        .header("Accept", "application/vnd.github.v3+json")
+        .get().build()
 
-    val res = client.newCall(req).execute()
-    val listType = object : TypeToken<MutableList<String>>() {}.type
+      val res = client.newCall(getReq).execute()
+      val listType = object : TypeToken<MutableList<String>>() {}.type
 
-    val (index, sha) = if (res.isSuccessful) {
-      val body = gson.fromJson(res.body?.string(), Map::class.java)
-      val content = String(Base64.getMimeDecoder().decode(body["content"] as String))
-      Pair(gson.fromJson<MutableList<String>>(content, listType), body["sha"] as String?)
-    } else {
-      Pair(mutableListOf(), null)
-    }
+      val (index, sha) = if (res.isSuccessful) {
+        val body = gson.fromJson(res.body?.string(), Map::class.java)
+        val content = String(Base64.getMimeDecoder().decode(body["content"] as String))
+        Pair(gson.fromJson<MutableList<String>>(content, listType), body["sha"] as String?)
+      } else {
+        Pair(mutableListOf(), null)
+      }
 
-    if (index.contains(username)) return  // already registered, skip write
+      if (index.contains(username)) return  // already registered, skip write
 
-    index.add(username)
-    index.sort()
+      index.add(username)
+      index.sort()
 
-    val encoded = Base64.getEncoder().encodeToString(gson.toJson(index).toByteArray())
-    val bodyMap = mutableMapOf(
-      "message" to "ghostline: register $username [skip ci]",
-      "content" to encoded
-    )
-    if (sha != null) bodyMap["sha"] = sha
+      val encoded = Base64.getEncoder().encodeToString(gson.toJson(index).toByteArray())
+      val bodyMap = mutableMapOf(
+        "message" to "ghostline: register $username [skip ci]",
+        "content" to encoded
+      )
+      if (sha != null) bodyMap["sha"] = sha
 
-    val putReq = Request.Builder()
-      .url("https://api.github.com/repos/$owner/$repo/contents/data/index.json")
-      .header("Authorization", "token $token")
-      .header("Accept", "application/vnd.github.v3+json")
-      .put(gson.toJson(bodyMap).toRequestBody(JSON))
-      .build()
+      val putReq = Request.Builder()
+        .url("https://api.github.com/repos/$owner/$repo/contents/data/index.json")
+        .header("Authorization", "token $token")
+        .header("Accept", "application/vnd.github.v3+json")
+        .put(gson.toJson(bodyMap).toRequestBody(JSON))
+        .build()
 
-    client.newCall(putReq).execute()
+      val putRes = client.newCall(putReq).execute()
+      // 422 = SHA conflict (another dev registered simultaneously) — retry once with fresh SHA
+      if (!putRes.isSuccessful && putRes.code == 422 && retries > 0) {
+        ensureInIndex(token, owner, repo, username, retries - 1)
+      }
+    } catch (_: Exception) {}
   }
 
   private fun readFile(token: String, owner: String, repo: String, path: String): Pair<DevData?, String?> {

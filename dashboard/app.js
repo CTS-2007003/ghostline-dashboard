@@ -59,9 +59,10 @@ function sanitize({ total, ai }) {
 
 function computeTotals(devs, range) {
   if (!range) {
+    // Sum from filtered devs so team filter applies to All Time too
     return sanitize({
-      total: summaryData.total_lines_written,
-      ai: summaryData.total_ai_lines
+      total: devs.reduce((s, d) => s + (d.total_lines_written || 0), 0),
+      ai: devs.reduce((s, d) => s + (d.total_ai_lines || 0), 0)
     })
   }
   let total = 0, ai = 0
@@ -179,8 +180,12 @@ function populateTeamFilter(devs) {
   select.innerHTML = '<option value="">All Teams</option>' +
     teams.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('')
 
-  // Restore previous selection if still valid
-  if (teams.includes(current)) select.value = current
+  // Restore previous selection if still valid, otherwise reset to avoid stale filter
+  if (teams.includes(current)) {
+    select.value = current
+  } else {
+    activeTeam = ''
+  }
 }
 
 // ── Filter bar wiring ─────────────────────────────────────────────────────────
@@ -246,7 +251,12 @@ async function fetchAll() {
   }
 }
 
+let refreshing = false
+
 async function refresh() {
+  if (refreshing) return
+  refreshing = true
+
   const pulse = document.getElementById('pulse')
   const btn = document.getElementById('refreshBtn')
   const lastUpdatedEl = document.getElementById('lastUpdated')
@@ -269,6 +279,7 @@ async function refresh() {
       : 'refresh failed — showing last known data'
     lastUpdatedEl.textContent = msg
   } finally {
+    refreshing = false
     if (btn) { btn.disabled = false; btn.textContent = '↻' }
   }
 }

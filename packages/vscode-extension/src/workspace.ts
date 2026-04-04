@@ -58,8 +58,7 @@ export function setupWorkspace(context: vscode.ExtensionContext) {
     const root = folder.uri.fsPath
     cleanLegacyInjections(root)
     writeInstructionsFile(root)
-    resetSessionFile(root)
-    watchSessionFile(root, context)
+    initSessionFile(root)
   }
 
   context.subscriptions.push(
@@ -68,8 +67,7 @@ export function setupWorkspace(context: vscode.ExtensionContext) {
         const root = folder.uri.fsPath
         cleanLegacyInjections(root)
         writeInstructionsFile(root)
-        resetSessionFile(root)
-        watchSessionFile(root, context)
+        initSessionFile(root)
       }
     })
   )
@@ -98,11 +96,14 @@ function writeInstructionsFile(root: string) {
   } catch {}
 }
 
-function resetSessionFile(root: string) {
-  const dir = path.join(root, '.ghostline')
+// Only creates session.json if it doesn't already exist — never resets AI lines on startup
+function initSessionFile(root: string) {
+  const filePath = path.join(root, SESSION_FILE)
   try {
+    if (fs.existsSync(filePath)) return
+    const dir = path.join(root, '.ghostline')
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
-    fs.writeFileSync(path.join(dir, 'session.json'), JSON.stringify({ ai_lines: 0 }, null, 2))
+    fs.writeFileSync(filePath, JSON.stringify({ ai_lines: 0 }, null, 2))
   } catch {}
 }
 
@@ -117,11 +118,4 @@ export function readAndResetSessionFile(root: string): number {
   } catch {
     return 0
   }
-}
-
-function watchSessionFile(root: string, context: vscode.ExtensionContext) {
-  const watcher = vscode.workspace.createFileSystemWatcher(
-    new vscode.RelativePattern(root, SESSION_FILE)
-  )
-  context.subscriptions.push(watcher)
 }

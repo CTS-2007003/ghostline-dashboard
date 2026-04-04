@@ -14,6 +14,9 @@
     <applicationService
       serviceInterface="com.ghostline.SessionStore"
       serviceImplementation="com.ghostline.SessionStore"/>
+    <applicationService
+      serviceInterface="com.ghostline.GhostlineSettings"
+      serviceImplementation="com.ghostline.GhostlineSettings"/>
     <applicationConfigurable
       instance="com.ghostline.GhostlineConfigurable"
       displayName="Ghostline"/>
