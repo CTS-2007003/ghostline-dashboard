@@ -149,6 +149,36 @@ main {
   gap: 12px;
 }
 
+.team-filter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.team-label {
+  font-size: 12px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.team-filter select {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  min-width: 160px;
+}
+
+.team-filter select:focus {
+  outline: none;
+  border-color: var(--ai);
+}
+
 .filter-presets {
   display: flex;
   gap: 8px;

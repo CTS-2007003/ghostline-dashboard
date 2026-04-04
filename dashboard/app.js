@@ -3,6 +3,7 @@ const INDEX_URL = `${GITHUB_RAW}/data/index.json`
 const REFRESH_INTERVAL = 60_000
 
 let summaryData = null
+let activeTeam = ''  // '' = all teams
 
 // Active filter state
 let activeFilter = { type: 'last30', from: null, to: null }
@@ -109,7 +110,7 @@ function timeAgo(isoString) {
   return `${Math.floor(diff / 86400)}d ago`
 }
 
-function renderCards(totals) {
+function renderCards(totals, devs) {
   const human = totals.total - totals.ai
   const pct = totals.total > 0 ? Math.round((totals.ai / totals.total) * 100) : 0
 
@@ -118,12 +119,7 @@ function renderCards(totals) {
   document.getElementById('totalHuman').textContent = fmt(human)
   document.getElementById('aiRatio').textContent = pct + '%'
 
-  // Show when a developer last actually synced, not when the dashboard fetched
-  const lastSync = summaryData.developers
-    .map(d => d.last_updated)
-    .filter(Boolean)
-    .sort()
-    .at(-1)
+  const lastSync = devs.map(d => d.last_updated).filter(Boolean).sort().at(-1)
   document.getElementById('lastUpdated').textContent = lastSync ? timeAgo(lastSync) : 'no syncs yet'
 }
 
@@ -159,14 +155,32 @@ function renderTeamTable(devs, range) {
 
 // ── Apply filter & re-render ──────────────────────────────────────────────────
 
+function filteredDevs() {
+  if (!activeTeam) return summaryData.developers
+  return summaryData.developers.filter(d => (d.team || '') === activeTeam)
+}
+
 function applyFilter() {
   if (!summaryData) return
 
+  const devs = filteredDevs()
   const range = getDateRange(activeFilter)
-  const totals = computeTotals(summaryData.developers, range)
+  const totals = computeTotals(devs, range)
 
-  renderCards(totals)
-  renderTeamTable(summaryData.developers, range)
+  renderCards(totals, devs)
+  renderTeamTable(devs, range)
+}
+
+function populateTeamFilter(devs) {
+  const select = document.getElementById('teamFilter')
+  const current = select.value
+
+  const teams = [...new Set(devs.map(d => d.team || '').filter(Boolean))].sort()
+  select.innerHTML = '<option value="">All Teams</option>' +
+    teams.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('')
+
+  // Restore previous selection if still valid
+  if (teams.includes(current)) select.value = current
 }
 
 // ── Filter bar wiring ─────────────────────────────────────────────────────────
@@ -240,6 +254,7 @@ async function refresh() {
   try {
     const fresh = await fetchAll()
     summaryData = fresh
+    populateTeamFilter(summaryData.developers)
     applyFilter()
     pulse.style.background = ''
   } catch (e) {
@@ -261,6 +276,10 @@ document.getElementById('tzBadge').textContent =
   Intl.DateTimeFormat().resolvedOptions().timeZone
 
 initFilterBar()
+document.getElementById('teamFilter').addEventListener('change', e => {
+  activeTeam = e.target.value
+  applyFilter()
+})
 document.getElementById('refreshBtn').addEventListener('click', refresh)
 refresh()
 

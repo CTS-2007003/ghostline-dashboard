@@ -9,6 +9,7 @@ class GhostlineSettings : PersistentStateComponent<GhostlineSettings.State> {
     var githubRepo: String = "",
     var githubUsername: String = "",
     var displayName: String = "",
+    var team: String = "",
     var flushIntervalMinutes: Int = 5
   )
 
@@ -25,6 +26,10 @@ class GhostlineSettings : PersistentStateComponent<GhostlineSettings.State> {
   var displayName: String
     get() = state.displayName
     set(v) { state.displayName = v }
+
+  var team: String
+    get() = state.team
+    set(v) { state.team = v }
 
   var flushIntervalMinutes: Int
     get() = state.flushIntervalMinutes

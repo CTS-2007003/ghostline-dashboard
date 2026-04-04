@@ -6,6 +6,7 @@ import { readAndResetSessionFile } from './workspace'
 interface DevData {
   username: string
   display_name: string
+  team: string
   ide: 'vscode'
   total_lines_written: number
   total_ai_lines: number
@@ -22,7 +23,8 @@ function config() {
   return {
     repo: cfg.get<string>('githubRepo', ''),
     username: cfg.get<string>('githubUsername', ''),
-    displayName: cfg.get<string>('displayName', '')
+    displayName: cfg.get<string>('displayName', ''),
+    team: cfg.get<string>('team', '')
   }
 }
 
@@ -47,7 +49,7 @@ export async function flush(context: vscode.ExtensionContext) {
 
   if (session.totalLines === 0) return
 
-  const { repo, username, displayName } = config()
+  const { repo, username, displayName, team } = config()
   if (!repo || !username) return
 
   const token = await context.secrets.get('ghostline.githubToken')
@@ -62,6 +64,7 @@ export async function flush(context: vscode.ExtensionContext) {
   const current: DevData = existing ?? {
     username,
     display_name: displayName || username,
+    team: team || '',
     ide: 'vscode',
     total_lines_written: 0,
     total_ai_lines: 0,
@@ -69,8 +72,8 @@ export async function flush(context: vscode.ExtensionContext) {
     last_updated: ''
   }
 
-  // Always keep display_name in sync with current setting
   if (displayName) current.display_name = displayName
+  if (team) current.team = team
 
   current.total_lines_written += session.totalLines
   current.total_ai_lines += Math.min(aiLines, session.totalLines) // AI can't exceed total

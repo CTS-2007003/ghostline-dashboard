@@ -41,6 +41,11 @@
           "default": "",
           "description": "Your display name shown on the team dashboard (e.g. your real name or nickname)"
         },
+        "ghostline.team": {
+          "type": "string",
+          "default": "",
+          "description": "Your team name (e.g. Frontend, Backend, Mobile)"
+        },
         "ghostline.flushIntervalMinutes": {
           "type": "number",
           "default": 5,
