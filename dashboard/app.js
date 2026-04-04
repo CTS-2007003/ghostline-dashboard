@@ -50,46 +50,59 @@ function getDateRange(filter) {
 
 // ── Data helpers ──────────────────────────────────────────────────────────────
 
+function sanitize({ total, ai }) {
+  const t = Math.max(0, total || 0)
+  const a = Math.min(Math.max(0, ai || 0), t)  // ai never negative, never > total
+  return { total: t, ai: a }
+}
+
 function computeTotals(devs, range) {
   if (!range) {
-    return {
+    return sanitize({
       total: summaryData.total_lines_written,
       ai: summaryData.total_ai_lines
-    }
+    })
   }
   let total = 0, ai = 0
   for (const dev of devs) {
     for (const entry of (dev.history || [])) {
       if (entry.date >= range.from && entry.date <= range.to) {
-        total += entry.total
-        ai += entry.ai
+        total += entry.total || 0
+        ai += entry.ai || 0  // guard against missing ai field in old data
       }
     }
   }
-  return { total, ai }
+  return sanitize({ total, ai })
 }
 
 function computeDevTotals(dev, range) {
   if (!range) {
-    return { total: dev.total_lines_written, ai: dev.total_ai_lines }
+    return sanitize({ total: dev.total_lines_written, ai: dev.total_ai_lines })
   }
   let total = 0, ai = 0
   for (const entry of (dev.history || [])) {
     if (entry.date >= range.from && entry.date <= range.to) {
-      total += entry.total
-      ai += entry.ai
+      total += entry.total || 0
+      ai += entry.ai || 0
     }
   }
-  return { total, ai }
+  return sanitize({ total, ai })
 }
 
 // ── Render ────────────────────────────────────────────────────────────────────
 
 function fmt(n) { return n.toLocaleString() }
 
+function esc(str) {
+  return String(str ?? '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
 function timeAgo(isoString) {
   if (!isoString) return '—'
   const diff = Math.floor((Date.now() - new Date(isoString)) / 1000)
+  if (diff < 0) return 'just now'   // clock skew guard
   if (diff < 60) return 'just now'
   if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
@@ -126,11 +139,11 @@ function renderTeamTable(devs, range) {
     .sort((a, b) => b.total - a.total)
 
   tbody.innerHTML = rows.map(({ dev, total, ai }) => {
-    const human = total - ai
-    const pct = total > 0 ? Math.round((ai / total) * 100) : 0
+    const human = total - ai  // sanitize() guarantees ai <= total, so never negative
+    const pct = total > 0 ? Math.min(100, Math.round((ai / total) * 100)) : 0
     return `
       <tr>
-        <td><strong>${dev.display_name || dev.username}</strong></td>
+        <td><strong>${esc(dev.display_name || dev.username)}</strong></td>
         <td>${fmt(total)}</td>
         <td style="color:var(--ai-light)">${fmt(ai)}</td>
         <td style="color:var(--human-light)">${fmt(human)}</td>
@@ -220,23 +233,26 @@ async function fetchAll() {
 
 async function refresh() {
   const pulse = document.getElementById('pulse')
-  pulse.style.background = 'var(--muted)'  // grey while loading
+  const btn = document.getElementById('refreshBtn')
+  pulse.style.background = 'var(--muted)'
+  if (btn) btn.disabled = true
 
   try {
     const fresh = await fetchAll()
-    summaryData = fresh  // only swap on success — stale data stays visible during load
+    summaryData = fresh
     applyFilter()
-    pulse.style.background = ''  // back to CSS animation (green)
+    pulse.style.background = ''
   } catch (e) {
     console.warn('Ghostline:', e.message)
-    pulse.style.background = '#f85149'  // red dot on error
+    pulse.style.background = '#f85149'
     if (!summaryData) {
       const msg = e.message.includes('index.json')
         ? 'no data yet — install the extension and sync'
         : `fetch error: ${e.message}`
       document.getElementById('lastUpdated').textContent = msg
     }
-    // if stale data exists, leave it on screen — only dot turns red
+  } finally {
+    if (btn) btn.disabled = false
   }
 }
 
@@ -245,5 +261,16 @@ document.getElementById('tzBadge').textContent =
   Intl.DateTimeFormat().resolvedOptions().timeZone
 
 initFilterBar()
+document.getElementById('refreshBtn').addEventListener('click', refresh)
 refresh()
-setInterval(refresh, REFRESH_INTERVAL)
+
+// Pause fetching when tab is hidden, resume (and refresh immediately) when visible again
+let timer = setInterval(refresh, REFRESH_INTERVAL)
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    clearInterval(timer)
+  } else {
+    refresh()
+    timer = setInterval(refresh, REFRESH_INTERVAL)
+  }
+})
