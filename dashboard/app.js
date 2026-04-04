@@ -222,8 +222,8 @@ function initFilterBar() {
 // ── Fetch & main loop ─────────────────────────────────────────────────────────
 
 async function fetchAll() {
-  // cache: 'no-store' bypasses both browser cache and CDN cache
-  const opts = { cache: 'no-store' }
+  // cache: 'reload' sends Cache-Control: no-cache to the CDN, forcing a fresh copy
+  const opts = { cache: 'reload' }
 
   const idxRes = await fetch(INDEX_URL, opts)
   if (!idxRes.ok) throw new Error('No index.json yet — no developers have synced.')

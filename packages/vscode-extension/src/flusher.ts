@@ -7,7 +7,7 @@ interface DevData {
   username: string
   display_name: string
   team: string
-  ide: 'vscode'
+  ides: string[]
   total_lines_written: number
   total_ai_lines: number
   history: { date: string; total: number; ai: number }[]
@@ -65,7 +65,7 @@ export async function flush(context: vscode.ExtensionContext) {
     username,
     display_name: displayName || username,
     team: team || '',
-    ide: 'vscode',
+    ides: ['vscode'],
     total_lines_written: 0,
     total_ai_lines: 0,
     history: [],
@@ -74,6 +74,8 @@ export async function flush(context: vscode.ExtensionContext) {
 
   if (displayName) current.display_name = displayName
   if (team) current.team = team
+  if (!current.ides) current.ides = []
+  if (!current.ides.includes('vscode')) current.ides.push('vscode')
 
   current.total_lines_written += session.totalLines
   current.total_ai_lines += Math.min(aiLines, session.totalLines) // AI can't exceed total
