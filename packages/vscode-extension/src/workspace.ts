@@ -59,6 +59,8 @@ export function setupWorkspace(context: vscode.ExtensionContext) {
     cleanLegacyInjections(root)
     writeInstructionsFile(root)
     initSessionFile(root)
+    ensureGitignore(root)
+    watchSessionFile(root, context)
   }
 
   context.subscriptions.push(
@@ -68,6 +70,8 @@ export function setupWorkspace(context: vscode.ExtensionContext) {
         cleanLegacyInjections(root)
         writeInstructionsFile(root)
         initSessionFile(root)
+        ensureGitignore(root)
+        watchSessionFile(root, context)
       }
     })
   )
@@ -79,9 +83,7 @@ function cleanLegacyInjections(root: string) {
     try {
       if (!fs.existsSync(filePath)) continue
       const content = fs.readFileSync(filePath, 'utf-8')
-      // Remove everything between <!-- ghostline --> markers (inclusive)
       const cleaned = content.replace(/<!-- ghostline -->[\s\S]*?<!-- ghostline -->\n*/g, '').trimStart()
-      // Also remove old # ghostline style marker used in .cursorrules
       const cleaned2 = cleaned.replace(/# ghostline[\s\S]*?# ghostline\n*/g, '').trimStart()
       if (cleaned2 !== content) fs.writeFileSync(filePath, cleaned2, 'utf-8')
     } catch {}
@@ -105,6 +107,32 @@ function initSessionFile(root: string) {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
     fs.writeFileSync(filePath, JSON.stringify({ ai_lines: 0 }, null, 2))
   } catch {}
+}
+
+// Ensures session.json is gitignored so git stash/checkout/restore never wipes AI lines.
+// INSTRUCTIONS.md is intentionally NOT ignored — it should be committed so teammates get it.
+function ensureGitignore(root: string) {
+  const gitignorePath = path.join(root, '.gitignore')
+  const entry = '.ghostline/'
+  try {
+    const existing = fs.existsSync(gitignorePath)
+      ? fs.readFileSync(gitignorePath, 'utf-8')
+      : ''
+    const lines = existing.split('\n')
+    if (lines.some(l => l.trim() === entry)) return
+    const append = (existing.endsWith('\n') || existing === '' ? '' : '\n') + entry + '\n'
+    fs.writeFileSync(gitignorePath, existing + append, 'utf-8')
+  } catch {}
+}
+
+// Watches session.json for deletion and immediately recreates it so mid-session
+// deletes (manual or via git) don't permanently lose the AI line count slot.
+function watchSessionFile(root: string, context: vscode.ExtensionContext) {
+  const watcher = vscode.workspace.createFileSystemWatcher(
+    new vscode.RelativePattern(root, SESSION_FILE)
+  )
+  watcher.onDidDelete(() => initSessionFile(root))
+  context.subscriptions.push(watcher)
 }
 
 export function readAndResetSessionFile(root: string): number {

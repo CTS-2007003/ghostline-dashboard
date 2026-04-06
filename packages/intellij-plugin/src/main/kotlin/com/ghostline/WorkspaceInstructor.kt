@@ -56,6 +56,8 @@ You write 12 lines. Developer accepts.
     cleanLegacyInjections(root)
     writeInstructionsFile(root)
     initSessionFile(root)
+    ensureGitignore(root)
+    watchSessionFile(root)
   }
 
   private fun cleanLegacyInjections(root: String) {
@@ -95,6 +97,31 @@ You write 12 lines. Developer accepts.
       dir.mkdirs()
       file.writeText("""{"ai_lines": 0}""")
     } catch (_: Exception) {}
+  }
+
+  // Ensures session.json is gitignored so git stash/checkout/restore never wipes AI lines.
+  // INSTRUCTIONS.md is intentionally NOT ignored — it should be committed so teammates get it.
+  private fun ensureGitignore(root: String) {
+    val entry = ".ghostline/"
+    val gitignore = File(root, ".gitignore")
+    try {
+      val existing = if (gitignore.exists()) gitignore.readText() else ""
+      val lines = existing.split("\n")
+      if (lines.any { it.trim() == entry }) return
+      val append = (if (existing.isEmpty() || existing.endsWith("\n")) "" else "\n") + entry + "\n"
+      gitignore.writeText(existing + append)
+    } catch (_: Exception) {}
+  }
+
+  // Watches session.json via IntelliJ VFS — recreates it immediately if deleted mid-session
+  // so git operations or manual deletes don't permanently lose the AI line count slot.
+  private fun watchSessionFile(root: String) {
+    val sessionPath = File(root, ".ghostline/session.json").absolutePath
+    LocalFileSystem.getInstance().addVirtualFileListener(object : com.intellij.openapi.vfs.VirtualFileListener {
+      override fun fileDeleted(event: com.intellij.openapi.vfs.VirtualFileEvent) {
+        if (event.file.path == sessionPath) initSessionFile(root)
+      }
+    })
   }
 
   fun readAndResetSessionFile(root: String): Int {

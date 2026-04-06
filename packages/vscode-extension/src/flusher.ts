@@ -99,7 +99,13 @@ export async function flush(context: vscode.ExtensionContext) {
     const aiSnap = Math.min(aiLines, totalSnap)
     current.total_lines_written += totalSnap
     current.total_ai_lines += aiSnap
-    current.last_updated = new Date().toISOString()
+    // Store with local timezone offset so the raw JSON is human-readable
+    const now = new Date()
+    const off = -now.getTimezoneOffset()
+    const sign = off >= 0 ? '+' : '-'
+    const pad = (n: number) => String(Math.abs(n)).padStart(2, '0')
+    current.last_updated = now.toISOString().slice(0, 19) +
+      `${sign}${pad(Math.floor(off / 60))}:${pad(off % 60)}`
 
     const todayStr = today()
     const historyEntry = current.history.find(h => h.date === todayStr)

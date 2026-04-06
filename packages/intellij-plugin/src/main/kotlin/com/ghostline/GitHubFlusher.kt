@@ -11,7 +11,8 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.time.LocalDate
-import java.time.Instant
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 import java.util.Base64
 
 data class HistoryEntry(val date: String, val total: Int, val ai: Int)
@@ -72,7 +73,8 @@ object GitHubFlusher {
         if (!data.ides.contains("intellij")) data.ides.add("intellij")
         data.total_lines_written += totalSnap
         data.total_ai_lines += aiSnap
-        data.last_updated = Instant.now().toString()
+        // Store with local timezone offset so the raw JSON is human-readable
+        data.last_updated = ZonedDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
 
         val today = LocalDate.now().toString()
         val entry = data.history.find { it.date == today }
