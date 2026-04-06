@@ -48,10 +48,19 @@ let flushing = false
 
 export async function flush(context: vscode.ExtensionContext) {
   if (flushing) return
+  // Set flag synchronously before any await so a concurrent call can't slip through
   flushing = true
 
   try {
-    // Read AI lines BEFORE the early-exit check — the AI may have written lines
+    // Check prerequisites before touching any files — avoids zeroing session.json
+    // when there's no token or config, which would permanently lose AI lines
+    const { repo, username, displayName, team } = config()
+    if (!repo || !username) return
+
+    const token = await context.secrets.get('ghostline.githubToken')
+    if (!token) return
+
+    // Read AI lines BEFORE the totalLines check — the AI may have written lines
     // even if the developer typed nothing this interval
     const folders = vscode.workspace.workspaceFolders
     const aiLines = folders?.reduce((sum, f) =>
@@ -60,14 +69,8 @@ export async function flush(context: vscode.ExtensionContext) {
     const session = getSession()
     if (session.totalLines === 0 && aiLines === 0) return
 
-    const { repo, username, displayName, team } = config()
-    if (!repo || !username) return
-
-    const token = await context.secrets.get('ghostline.githubToken')
-    if (!token) return
-
     // Snapshot and reset before network calls so lines typed during the flush
-    // aren't silently dropped on resetSession() at the end
+    // aren't silently dropped
     const totalSnap = session.totalLines
     resetSession()
 

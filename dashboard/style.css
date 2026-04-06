@@ -237,7 +237,7 @@ main {
   font-size: 13px;
 }
 
-.filter-custom input[type="date"] {
+.filter-custom input[type="text"] {
   background: var(--surface);
   border: 1px solid var(--border);
   color: var(--text);
@@ -245,11 +245,60 @@ main {
   border-radius: 6px;
   font-size: 13px;
   cursor: pointer;
+  width: 110px;
 }
 
-.filter-custom input[type="date"]:focus {
+.filter-custom input[type="text"]:focus {
   outline: none;
   border-color: var(--ai);
+}
+
+/* Flatpickr dark theme overrides to match Ghostline palette */
+.flatpickr-calendar {
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4) !important;
+}
+.flatpickr-months,
+.flatpickr-weekdays,
+span.flatpickr-weekday {
+  background: var(--surface) !important;
+  color: var(--muted) !important;
+}
+.flatpickr-day {
+  color: var(--text) !important;
+  border-radius: 6px !important;
+}
+.flatpickr-day:hover {
+  background: var(--border) !important;
+}
+.flatpickr-day.selected,
+.flatpickr-day.selected:hover {
+  background: var(--ai) !important;
+  border-color: var(--ai) !important;
+}
+.flatpickr-day.today {
+  border-color: var(--ai-light) !important;
+}
+.flatpickr-day.disabled,
+.flatpickr-day.disabled:hover {
+  color: var(--muted) !important;
+  opacity: 0.4;
+}
+.flatpickr-prev-month,
+.flatpickr-next-month {
+  color: var(--muted) !important;
+  fill: var(--muted) !important;
+}
+.flatpickr-prev-month:hover,
+.flatpickr-next-month:hover {
+  color: var(--text) !important;
+  fill: var(--text) !important;
+}
+.flatpickr-current-month .flatpickr-monthDropdown-months,
+.flatpickr-current-month input.cur-year {
+  background: transparent !important;
+  color: var(--text) !important;
 }
 
 .filter-apply {

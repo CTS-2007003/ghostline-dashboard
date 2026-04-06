@@ -103,7 +103,9 @@ function esc(str) {
 
 function timeAgo(isoString) {
   if (!isoString) return '—'
-  const diff = Math.floor((Date.now() - new Date(isoString)) / 1000)
+  const ts = new Date(isoString)
+  if (isNaN(ts.getTime())) return '—'  // guard against corrupt date strings
+  const diff = Math.floor((Date.now() - ts) / 1000)
   if (diff < 0) return 'just now'   // clock skew guard
   if (diff < 60) return 'just now'
   if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
@@ -209,8 +211,28 @@ function initFilterBar() {
   // Default custom date range to current month
   const today = new Date()
   const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
-  document.getElementById('customFrom').value = toLocalDateStr(firstOfMonth)
-  document.getElementById('customTo').value = toLocalDateStr(today)
+
+  const pickerOpts = {
+    dateFormat: 'Y-m-d',
+    disableMobile: true,
+    theme: 'dark'
+  }
+
+  const fromPicker = flatpickr('#customFrom', {
+    ...pickerOpts,
+    defaultDate: firstOfMonth,
+    onChange([selected]) {
+      if (selected) toPicker.set('minDate', selected)
+    }
+  })
+
+  const toPicker = flatpickr('#customTo', {
+    ...pickerOpts,
+    defaultDate: today,
+    onChange([selected]) {
+      if (selected) fromPicker.set('maxDate', selected)
+    }
+  })
 
   document.getElementById('applyCustom').addEventListener('click', () => {
     const from = document.getElementById('customFrom').value

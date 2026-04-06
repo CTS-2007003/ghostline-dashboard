@@ -5,7 +5,7 @@ import com.intellij.openapi.components.service
 
 @Service
 class SessionStore {
-  var totalLines: Int = 0
+  @Volatile var totalLines: Int = 0
 
   fun reset() {
     totalLines = 0

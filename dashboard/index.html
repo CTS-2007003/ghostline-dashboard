@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Ghostline — AI Line Tracker</title>
 <link rel="stylesheet" href="style.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" />
 </head>
 <body>
   <header>
@@ -58,8 +59,8 @@
         <button class="filter-btn" data-filter="custom">Custom</button>
       </div>
       <div class="filter-custom" id="customRange" style="display:none">
-        <label>From <input type="date" id="customFrom" /></label>
-        <label>To <input type="date" id="customTo" /></label>
+        <label>From <input type="text" id="customFrom" placeholder="Pick date" readonly /></label>
+        <label>To <input type="text" id="customTo" placeholder="Pick date" readonly /></label>
         <button class="filter-apply" id="applyCustom">Apply</button>
       </div>
     </section>
@@ -83,6 +84,7 @@
     </section>
   </main>
 
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
   <script src="app.js"></script>
 </body>
 </html>
