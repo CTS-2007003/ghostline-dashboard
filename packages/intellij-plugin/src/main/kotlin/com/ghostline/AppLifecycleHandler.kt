@@ -17,7 +17,14 @@ class AppLifecycleHandler : AppLifecycleListener {
     scheduledFlush = scheduler.scheduleAtFixedRate(
       {
         log.info("Ghostline: timer tick")
-        GitHubFlusher.flush()
+        try {
+          GitHubFlusher.flush()
+        } catch (t: Throwable) {
+          // If ANY uncaught throwable escapes here, ScheduledExecutorService
+          // permanently cancels this task and never fires again — swallow it
+          // and let the logger surface it instead
+          log.error("Ghostline: uncaught throwable in flush task — rescheduling will continue", t)
+        }
       },
       intervalMinutes,
       intervalMinutes,

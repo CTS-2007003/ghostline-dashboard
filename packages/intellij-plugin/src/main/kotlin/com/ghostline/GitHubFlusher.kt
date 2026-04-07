@@ -103,8 +103,8 @@ object GitHubFlusher {
       writeFile(token, owner, repo, path, data, sha)
       ensureInIndex(token, owner, repo, data.username)
       log.info("Ghostline: flush complete — wrote $effectiveTotal total, $aiSnap AI lines")
-    } catch (e: Exception) {
-      log.error("Ghostline: flush failed", e)
+    } catch (t: Throwable) {
+      log.error("Ghostline: flush failed", t)
     }
   }
 
