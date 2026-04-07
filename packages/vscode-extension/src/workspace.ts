@@ -41,9 +41,24 @@ You write 12 lines. Developer accepts.
 const INSTRUCTIONS_FILE = '.ghostline/INSTRUCTIONS.md'
 const SESSION_FILE = '.ghostline/session.json'
 
-// Files the old version injected into — clean up the ghostline block from these
+// Forceful wording for Gemini — injected into .gemini/context.md using markers
+// so it auto-loads without the developer having to add it manually each session
+const GEMINI_BLOCK = `<!-- ghostline -->
+MANDATORY RULE — DO NOT SKIP:
+Every time you write or modify code and the developer accepts it, you MUST immediately update \`.ghostline/session.json\`.
+This is not optional. Do it after every single code response without being asked.
+
+Steps:
+1. Read \`.ghostline/session.json\` (create as {"ai_lines":0} if missing)
+2. Count the net NEW lines you wrote (additions minus deletions, positive only)
+3. Add to ai_lines and write back
+
+Format: {"ai_lines": 42} — one field, never reset to 0, only increment.
+<!-- ghostline -->`
+
+// Legacy files that used to have ghostline blocks injected — clean them up.
+// .gemini/context.md is excluded here because we now write to it directly.
 const LEGACY_INJECTED_FILES = [
-  '.gemini/context.md',
   '.github/copilot-instructions.md',
   'CLAUDE.md',
   '.cursorrules',
@@ -58,6 +73,7 @@ export function setupWorkspace(context: vscode.ExtensionContext) {
     const root = folder.uri.fsPath
     cleanLegacyInjections(root)
     writeInstructionsFile(root)
+    writeGeminiContext(root)
     initSessionFile(root)
     watchSessionFile(root, context)
   }
@@ -68,6 +84,7 @@ export function setupWorkspace(context: vscode.ExtensionContext) {
         const root = folder.uri.fsPath
         cleanLegacyInjections(root)
         writeInstructionsFile(root)
+        writeGeminiContext(root)
         initSessionFile(root)
         watchSessionFile(root, context)
       }
@@ -93,6 +110,27 @@ function writeInstructionsFile(root: string) {
   try {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
     fs.writeFileSync(path.join(dir, 'INSTRUCTIONS.md'), INSTRUCTIONS_MD, 'utf-8')
+  } catch {}
+}
+
+// Injects the ghostline block into .gemini/context.md so Gemini Code Assist
+// auto-loads the instructions every session without any manual steps.
+function writeGeminiContext(root: string) {
+  const filePath = path.join(root, '.gemini', 'context.md')
+  try {
+    const existing = fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf-8') : ''
+    const marker = '<!-- ghostline -->'
+    if (existing.includes(marker)) {
+      // Update existing block in place
+      const updated = existing.replace(/<!-- ghostline -->[\s\S]*?<!-- ghostline -->/, GEMINI_BLOCK)
+      if (updated !== existing) fs.writeFileSync(filePath, updated, 'utf-8')
+    } else {
+      // Append block — preserve any content the developer already has
+      const dir = path.join(root, '.gemini')
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+      const sep = existing === '' || existing.endsWith('\n') ? '' : '\n'
+      fs.writeFileSync(filePath, existing + sep + '\n' + GEMINI_BLOCK + '\n', 'utf-8')
+    }
   } catch {}
 }
 

@@ -1,18 +1,24 @@
 package com.ghostline
 
 import com.intellij.ide.AppLifecycleListener
+import com.intellij.openapi.diagnostic.Logger
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 
 class AppLifecycleHandler : AppLifecycleListener {
+  private val log = Logger.getInstance(AppLifecycleHandler::class.java)
   private var scheduledFlush: ScheduledFuture<*>? = null
   private val scheduler = Executors.newSingleThreadScheduledExecutor()
 
   override fun appStarted() {
     val intervalMinutes = GhostlineSettings.getInstance().flushIntervalMinutes.toLong()
+    log.info("Ghostline: timer started — flushing every $intervalMinutes minute(s)")
     scheduledFlush = scheduler.scheduleAtFixedRate(
-      { GitHubFlusher.flush() },
+      {
+        log.info("Ghostline: timer tick")
+        GitHubFlusher.flush()
+      },
       intervalMinutes,
       intervalMinutes,
       TimeUnit.MINUTES

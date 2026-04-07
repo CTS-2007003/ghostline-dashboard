@@ -3,6 +3,7 @@ package com.ghostline
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.reflect.TypeToken
+import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.ProjectManager
 import com.intellij.util.net.ssl.CertificateManager
 import okhttp3.MediaType.Companion.toMediaType
@@ -28,6 +29,8 @@ data class DevData(
 )
 
 object GitHubFlusher {
+  private val log = Logger.getInstance(GitHubFlusher::class.java)
+
   private val client = run {
     val cm = CertificateManager.getInstance()
     OkHttpClient.Builder()
@@ -39,12 +42,19 @@ object GitHubFlusher {
 
   @Synchronized
   fun flush() {
+    log.info("Ghostline: flush() called")
     val session = SessionStore.getInstance()
-
     val settings = GhostlineSettings.getInstance()
-    val token = AuthManager.getInstance().getToken() ?: return
-    val username = settings.githubUsername.ifBlank { return }
-    val (owner, repo) = settings.githubRepo.split("/").takeIf { it.size == 2 } ?: return
+
+    val token = AuthManager.getInstance().getToken()
+    if (token == null) { log.warn("Ghostline: no token set — skipping flush"); return }
+
+    val username = settings.githubUsername
+    if (username.isBlank()) { log.warn("Ghostline: username not set — skipping flush"); return }
+
+    val parts = settings.githubRepo.split("/")
+    if (parts.size != 2) { log.warn("Ghostline: invalid repo '${settings.githubRepo}' — skipping flush"); return }
+    val (owner, repo) = parts
 
     val totalSnap = session.totalLines
 
@@ -54,53 +64,48 @@ object GitHubFlusher {
       .mapNotNull { it.basePath }
       .sumOf { WorkspaceInstructor.readAndResetSessionFile(it) }
 
-    if (totalSnap == 0 && aiSnap == 0) return
+    log.info("Ghostline: totalSnap=$totalSnap aiSnap=$aiSnap")
+
+    if (totalSnap == 0 && aiSnap == 0) { log.info("Ghostline: nothing to flush"); return }
 
     // Effective total: if AI wrote lines to files not open in the editor,
     // DocumentTracker won't have counted them — use AI lines as the floor
     val effectiveTotal = maxOf(totalSnap, aiSnap)
 
-    // Reset before dispatching — prevents a second concurrent flush from
-    // double-counting the same lines if the timer and appWillBeClosed overlap
+    // Reset before network calls — prevents double-count if timer + close overlap
     session.reset()
 
-    val work = Runnable {
-      try {
-        val path = "data/$username.json"
-        val (existing, sha) = readFile(token, owner, repo, path)
+    try {
+      val path = "data/$username.json"
+      val (existing, sha) = readFile(token, owner, repo, path)
 
-        val displayName = settings.displayName.ifBlank { username }
-        val team = settings.team
-        val data = existing ?: DevData(username = username, display_name = displayName, team = team)
-        data.display_name = displayName
-        if (team.isNotBlank()) data.team = team
-        if (!data.ides.contains("intellij")) data.ides.add("intellij")
-        data.total_lines_written += effectiveTotal
-        data.total_ai_lines += aiSnap
-        // Store with local timezone offset so the raw JSON is human-readable
-        data.last_updated = ZonedDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+      val displayName = settings.displayName.ifBlank { username }
+      val team = settings.team
+      val data = existing ?: DevData(username = username, display_name = displayName, team = team)
+      data.display_name = displayName
+      if (team.isNotBlank()) data.team = team
+      if (!data.ides.contains("intellij")) data.ides.add("intellij")
+      data.total_lines_written += effectiveTotal
+      data.total_ai_lines += aiSnap
+      data.last_updated = ZonedDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
 
-        val today = LocalDate.now().toString()
-        val entry = data.history.find { it.date == today }
-        if (entry != null) {
-          val idx = data.history.indexOf(entry)
-          data.history[idx] = entry.copy(total = entry.total + effectiveTotal, ai = entry.ai + aiSnap)
-        } else {
-          data.history.add(HistoryEntry(today, effectiveTotal, aiSnap))
-        }
-
-        if (data.history.size > 90) data.history = data.history.takeLast(90).toMutableList()
-
-        writeFile(token, owner, repo, path, data, sha)
-        ensureInIndex(token, owner, repo, data.username)
-      } catch (e: Exception) {
-        // Silent fail — will retry on next flush
+      val today = LocalDate.now().toString()
+      val entry = data.history.find { it.date == today }
+      if (entry != null) {
+        val idx = data.history.indexOf(entry)
+        data.history[idx] = entry.copy(total = entry.total + effectiveTotal, ai = entry.ai + aiSnap)
+      } else {
+        data.history.add(HistoryEntry(today, effectiveTotal, aiSnap))
       }
-    }
 
-    // Callers are always off the EDT (timer thread or dedicated close thread),
-    // so run the work directly — no extra dispatch needed
-    work.run()
+      if (data.history.size > 90) data.history = data.history.takeLast(90).toMutableList()
+
+      writeFile(token, owner, repo, path, data, sha)
+      ensureInIndex(token, owner, repo, data.username)
+      log.info("Ghostline: flush complete — wrote $effectiveTotal total, $aiSnap AI lines")
+    } catch (e: Exception) {
+      log.error("Ghostline: flush failed", e)
+    }
   }
 
   private fun ensureInIndex(token: String, owner: String, repo: String, username: String, retries: Int = 1) {
