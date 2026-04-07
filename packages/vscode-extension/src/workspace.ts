@@ -59,7 +59,6 @@ export function setupWorkspace(context: vscode.ExtensionContext) {
     cleanLegacyInjections(root)
     writeInstructionsFile(root)
     initSessionFile(root)
-    ensureGitignore(root)
     watchSessionFile(root, context)
   }
 
@@ -70,7 +69,6 @@ export function setupWorkspace(context: vscode.ExtensionContext) {
         cleanLegacyInjections(root)
         writeInstructionsFile(root)
         initSessionFile(root)
-        ensureGitignore(root)
         watchSessionFile(root, context)
       }
     })
@@ -106,29 +104,6 @@ function initSessionFile(root: string) {
     const dir = path.join(root, '.ghostline')
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
     fs.writeFileSync(filePath, JSON.stringify({ ai_lines: 0 }, null, 2))
-  } catch {}
-}
-
-// Ensures only session.json is gitignored — NOT the whole .ghostline/ dir.
-// INSTRUCTIONS.md must stay visible so Gemini, Copilot, etc. can load it as context,
-// and so teammates get it when they clone the repo.
-function ensureGitignore(root: string) {
-  const gitignorePath = path.join(root, '.gitignore')
-  const entry = '.ghostline/session.json'
-  const oldEntry = '.ghostline/'
-  try {
-    const existing = fs.existsSync(gitignorePath)
-      ? fs.readFileSync(gitignorePath, 'utf-8')
-      : ''
-    // Migrate: replace old broad ignore with the specific file entry
-    if (existing.split('\n').some(l => l.trim() === oldEntry)) {
-      const migrated = existing.split('\n').map(l => l.trim() === oldEntry ? entry : l).join('\n')
-      fs.writeFileSync(gitignorePath, migrated, 'utf-8')
-      return
-    }
-    if (existing.split('\n').some(l => l.trim() === entry)) return
-    const append = (existing.endsWith('\n') || existing === '' ? '' : '\n') + entry + '\n'
-    fs.writeFileSync(gitignorePath, existing + append, 'utf-8')
   } catch {}
 }
 

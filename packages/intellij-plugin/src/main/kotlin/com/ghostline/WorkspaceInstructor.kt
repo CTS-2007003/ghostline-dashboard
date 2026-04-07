@@ -56,7 +56,6 @@ You write 12 lines. Developer accepts.
     cleanLegacyInjections(root)
     writeInstructionsFile(root)
     initSessionFile(root)
-    ensureGitignore(root)
     watchSessionFile(root)
   }
 
@@ -96,29 +95,6 @@ You write 12 lines. Developer accepts.
       if (file.exists()) return
       dir.mkdirs()
       file.writeText("""{"ai_lines": 0}""")
-    } catch (_: Exception) {}
-  }
-
-  // Ensures only session.json is gitignored — NOT the whole .ghostline/ dir.
-  // INSTRUCTIONS.md must stay visible so Gemini, Copilot, etc. can load it as context,
-  // and so teammates get it when they clone the repo.
-  private fun ensureGitignore(root: String) {
-    val entry = ".ghostline/session.json"
-    val oldEntry = ".ghostline/"
-    val gitignore = File(root, ".gitignore")
-    try {
-      val existing = if (gitignore.exists()) gitignore.readText() else ""
-      // Migrate: replace old broad ignore with the specific file entry
-      if (existing.lines().any { it.trim() == oldEntry }) {
-        val migrated = existing.lines()
-          .map { if (it.trim() == oldEntry) entry else it }
-          .joinToString("\n")
-        gitignore.writeText(migrated)
-        return
-      }
-      if (existing.lines().any { it.trim() == entry }) return
-      val append = (if (existing.isEmpty() || existing.endsWith("\n")) "" else "\n") + entry + "\n"
-      gitignore.writeText(existing + append)
     } catch (_: Exception) {}
   }
 
