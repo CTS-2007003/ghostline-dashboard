@@ -99,15 +99,24 @@ You write 12 lines. Developer accepts.
     } catch (_: Exception) {}
   }
 
-  // Ensures session.json is gitignored so git stash/checkout/restore never wipes AI lines.
-  // INSTRUCTIONS.md is intentionally NOT ignored — it should be committed so teammates get it.
+  // Ensures only session.json is gitignored — NOT the whole .ghostline/ dir.
+  // INSTRUCTIONS.md must stay visible so Gemini, Copilot, etc. can load it as context,
+  // and so teammates get it when they clone the repo.
   private fun ensureGitignore(root: String) {
-    val entry = ".ghostline/"
+    val entry = ".ghostline/session.json"
+    val oldEntry = ".ghostline/"
     val gitignore = File(root, ".gitignore")
     try {
       val existing = if (gitignore.exists()) gitignore.readText() else ""
-      val lines = existing.split("\n")
-      if (lines.any { it.trim() == entry }) return
+      // Migrate: replace old broad ignore with the specific file entry
+      if (existing.lines().any { it.trim() == oldEntry }) {
+        val migrated = existing.lines()
+          .map { if (it.trim() == oldEntry) entry else it }
+          .joinToString("\n")
+        gitignore.writeText(migrated)
+        return
+      }
+      if (existing.lines().any { it.trim() == entry }) return
       val append = (if (existing.isEmpty() || existing.endsWith("\n")) "" else "\n") + entry + "\n"
       gitignore.writeText(existing + append)
     } catch (_: Exception) {}

@@ -109,17 +109,24 @@ function initSessionFile(root: string) {
   } catch {}
 }
 
-// Ensures session.json is gitignored so git stash/checkout/restore never wipes AI lines.
-// INSTRUCTIONS.md is intentionally NOT ignored — it should be committed so teammates get it.
+// Ensures only session.json is gitignored — NOT the whole .ghostline/ dir.
+// INSTRUCTIONS.md must stay visible so Gemini, Copilot, etc. can load it as context,
+// and so teammates get it when they clone the repo.
 function ensureGitignore(root: string) {
   const gitignorePath = path.join(root, '.gitignore')
-  const entry = '.ghostline/'
+  const entry = '.ghostline/session.json'
+  const oldEntry = '.ghostline/'
   try {
     const existing = fs.existsSync(gitignorePath)
       ? fs.readFileSync(gitignorePath, 'utf-8')
       : ''
-    const lines = existing.split('\n')
-    if (lines.some(l => l.trim() === entry)) return
+    // Migrate: replace old broad ignore with the specific file entry
+    if (existing.split('\n').some(l => l.trim() === oldEntry)) {
+      const migrated = existing.split('\n').map(l => l.trim() === oldEntry ? entry : l).join('\n')
+      fs.writeFileSync(gitignorePath, migrated, 'utf-8')
+      return
+    }
+    if (existing.split('\n').some(l => l.trim() === entry)) return
     const append = (existing.endsWith('\n') || existing === '' ? '' : '\n') + entry + '\n'
     fs.writeFileSync(gitignorePath, existing + append, 'utf-8')
   } catch {}
