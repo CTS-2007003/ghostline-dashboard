@@ -3,7 +3,6 @@ package com.ghostline
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.reflect.TypeToken
-import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.ProjectManager
 import com.intellij.util.net.ssl.CertificateManager
 import okhttp3.MediaType.Companion.toMediaType
@@ -39,9 +38,8 @@ object GitHubFlusher {
   private val JSON = "application/json".toMediaType()
 
   @Synchronized
-  fun flush(synchronous: Boolean = false) {
+  fun flush() {
     val session = SessionStore.getInstance()
-    if (session.totalLines == 0) return
 
     val settings = GhostlineSettings.getInstance()
     val token = AuthManager.getInstance().getToken() ?: return
@@ -50,11 +48,17 @@ object GitHubFlusher {
 
     val totalSnap = session.totalLines
 
-    // Collect AI lines from all open projects' session.json files
-    val rawAiLines = ProjectManager.getInstance().openProjects
+    // Read AI lines BEFORE the early-exit check — AI may have written lines
+    // even if the developer typed nothing this interval
+    val aiSnap = ProjectManager.getInstance().openProjects
       .mapNotNull { it.basePath }
       .sumOf { WorkspaceInstructor.readAndResetSessionFile(it) }
-    val aiSnap = minOf(rawAiLines, totalSnap)
+
+    if (totalSnap == 0 && aiSnap == 0) return
+
+    // Effective total: if AI wrote lines to files not open in the editor,
+    // DocumentTracker won't have counted them — use AI lines as the floor
+    val effectiveTotal = maxOf(totalSnap, aiSnap)
 
     // Reset before dispatching — prevents a second concurrent flush from
     // double-counting the same lines if the timer and appWillBeClosed overlap
@@ -71,7 +75,7 @@ object GitHubFlusher {
         data.display_name = displayName
         if (team.isNotBlank()) data.team = team
         if (!data.ides.contains("intellij")) data.ides.add("intellij")
-        data.total_lines_written += totalSnap
+        data.total_lines_written += effectiveTotal
         data.total_ai_lines += aiSnap
         // Store with local timezone offset so the raw JSON is human-readable
         data.last_updated = ZonedDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
@@ -80,9 +84,9 @@ object GitHubFlusher {
         val entry = data.history.find { it.date == today }
         if (entry != null) {
           val idx = data.history.indexOf(entry)
-          data.history[idx] = entry.copy(total = entry.total + totalSnap, ai = entry.ai + aiSnap)
+          data.history[idx] = entry.copy(total = entry.total + effectiveTotal, ai = entry.ai + aiSnap)
         } else {
-          data.history.add(HistoryEntry(today, totalSnap, aiSnap))
+          data.history.add(HistoryEntry(today, effectiveTotal, aiSnap))
         }
 
         if (data.history.size > 90) data.history = data.history.takeLast(90).toMutableList()
@@ -94,11 +98,9 @@ object GitHubFlusher {
       }
     }
 
-    if (synchronous) {
-      work.run()
-    } else {
-      ApplicationManager.getApplication().executeOnPooledThread(work)
-    }
+    // Callers are always off the EDT (timer thread or dedicated close thread),
+    // so run the work directly — no extra dispatch needed
+    work.run()
   }
 
   private fun ensureInIndex(token: String, owner: String, repo: String, username: String, retries: Int = 1) {

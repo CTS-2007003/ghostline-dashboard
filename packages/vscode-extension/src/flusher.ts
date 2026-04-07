@@ -96,8 +96,11 @@ export async function flush(context: vscode.ExtensionContext) {
     if (!current.ides) current.ides = []
     if (!current.ides.includes('vscode')) current.ides.push('vscode')
 
-    const aiSnap = Math.min(aiLines, totalSnap)
-    current.total_lines_written += totalSnap
+    // Effective total: if AI wrote lines to files not open in the editor,
+    // the document change tracker won't have counted them — use AI lines as the floor
+    const aiSnap = aiLines
+    const effectiveTotal = Math.max(totalSnap, aiSnap)
+    current.total_lines_written += effectiveTotal
     current.total_ai_lines += aiSnap
     // Store with local timezone offset so the raw JSON is human-readable
     const now = new Date()
@@ -110,10 +113,10 @@ export async function flush(context: vscode.ExtensionContext) {
     const todayStr = today()
     const historyEntry = current.history.find(h => h.date === todayStr)
     if (historyEntry) {
-      historyEntry.total += totalSnap
+      historyEntry.total += effectiveTotal
       historyEntry.ai += aiSnap
     } else {
-      current.history.push({ date: todayStr, total: totalSnap, ai: aiSnap })
+      current.history.push({ date: todayStr, total: effectiveTotal, ai: aiSnap })
     }
 
     current.history = current.history.slice(-90)

@@ -22,6 +22,12 @@ class AppLifecycleHandler : AppLifecycleListener {
   override fun appWillBeClosed(isRestart: Boolean) {
     scheduledFlush?.cancel(false)
     scheduler.shutdown()
-    GitHubFlusher.flush(synchronous = true)
+
+    // Run flush on a dedicated thread — OkHttp calls must NOT run on the EDT.
+    // Blocking the EDT during shutdown causes IntelliJ to cancel the operation.
+    // Join with a 15s timeout so we don't hang the IDE close indefinitely.
+    val thread = Thread({ GitHubFlusher.flush() }, "ghostline-close-flush")
+    thread.start()
+    thread.join(15_000)
   }
 }

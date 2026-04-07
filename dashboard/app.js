@@ -224,28 +224,8 @@ function initFilterBar() {
   // Default custom date range to current month
   const today = new Date()
   const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
-
-  const pickerOpts = {
-    dateFormat: 'Y-m-d',
-    disableMobile: true,
-    theme: 'dark'
-  }
-
-  const fromPicker = flatpickr('#customFrom', {
-    ...pickerOpts,
-    defaultDate: firstOfMonth,
-    onChange([selected]) {
-      if (selected) toPicker.set('minDate', selected)
-    }
-  })
-
-  const toPicker = flatpickr('#customTo', {
-    ...pickerOpts,
-    defaultDate: today,
-    onChange([selected]) {
-      if (selected) fromPicker.set('maxDate', selected)
-    }
-  })
+  document.getElementById('customFrom').value = toLocalDateStr(firstOfMonth)
+  document.getElementById('customTo').value = toLocalDateStr(today)
 
   document.getElementById('applyCustom').addEventListener('click', () => {
     const from = document.getElementById('customFrom').value
