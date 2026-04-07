@@ -45,8 +45,8 @@ async function readFile(octokit: Octokit, owner: string, repo: string, path: str
 // Prevents two concurrent flushes from double-counting lines
 let flushing = false
 
-export async function flush(context: vscode.ExtensionContext) {
-  if (flushing) return
+export async function flush(context: vscode.ExtensionContext, force = false) {
+  if (flushing && !force) return
   // Set flag synchronously before any await so a concurrent call can't slip through
   flushing = true
 

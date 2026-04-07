@@ -51,7 +51,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 export async function deactivate() {
   if (flushTimer) clearInterval(flushTimer)
-  if (storedContext) await flush(storedContext)
+  if (storedContext) await flush(storedContext, true)
 }
 
 function showStatus() {
