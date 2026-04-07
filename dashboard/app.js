@@ -242,7 +242,6 @@ function initFilterBar() {
 // ── Fetch & main loop ─────────────────────────────────────────────────────────
 
 async function fetchAll() {
-  // cache: 'reload' sends Cache-Control: no-cache to the CDN, forcing a fresh copy
   const opts = { cache: 'reload' }
 
   const idxRes = await fetch(INDEX_URL, opts)

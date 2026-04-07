@@ -102,9 +102,11 @@ export async function flush(context: vscode.ExtensionContext) {
     const now = new Date()
     const off = -now.getTimezoneOffset()
     const sign = off >= 0 ? '+' : '-'
-    const pad = (n: number) => String(Math.abs(n)).padStart(2, '0')
-    current.last_updated = now.toISOString().slice(0, 19) +
-      `${sign}${pad(Math.floor(off / 60))}:${pad(off % 60)}`
+    const pad2 = (n: number) => String(Math.abs(n)).padStart(2, '0')
+    current.last_updated =
+      `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}` +
+      `T${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}` +
+      `${sign}${pad2(Math.floor(Math.abs(off) / 60))}:${pad2(Math.abs(off) % 60)}`
 
     const todayStr = today()
     const historyEntry = current.history.find(h => h.date === todayStr)
