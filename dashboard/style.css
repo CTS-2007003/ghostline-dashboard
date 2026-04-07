@@ -179,19 +179,27 @@ main {
 }
 
 .team-filter select {
-  background: var(--surface);
+  appearance: none;
+  background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238b949e' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 10px center;
   border: 1px solid var(--border);
   color: var(--text);
-  padding: 6px 12px;
+  padding: 6px 32px 6px 12px;
   border-radius: 6px;
   font-size: 13px;
   cursor: pointer;
   min-width: 160px;
 }
 
+.team-filter select:hover { border-color: var(--ai); }
+
 .team-filter select:focus {
   outline: none;
   border-color: var(--ai);
+}
+
+.team-filter select option {
+  background: var(--surface);
+  color: var(--text);
 }
 
 .filter-presets {
@@ -241,12 +249,15 @@ main {
   background: var(--surface);
   border: 1px solid var(--border);
   color: var(--text);
-  padding: 5px 10px;
+  padding: 6px 10px;
   border-radius: 6px;
   font-size: 13px;
   cursor: pointer;
-  width: 110px;
+  width: 112px;
+  font-family: inherit;
 }
+
+.filter-custom input[type="text"]:hover { border-color: var(--ai); }
 
 .filter-custom input[type="text"]:focus {
   outline: none;
@@ -297,8 +308,33 @@ span.flatpickr-weekday {
 }
 .flatpickr-current-month .flatpickr-monthDropdown-months,
 .flatpickr-current-month input.cur-year {
-  background: transparent !important;
+  appearance: none !important;
+  background: var(--surface) !important;
   color: var(--text) !important;
+  border: none !important;
+  font-weight: 600 !important;
+}
+
+.flatpickr-current-month .flatpickr-monthDropdown-months option {
+  background: var(--surface) !important;
+  color: var(--text) !important;
+}
+
+.flatpickr-current-month {
+  display: flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+}
+
+/* Arrow icons in calendar nav */
+.flatpickr-months .flatpickr-prev-month svg,
+.flatpickr-months .flatpickr-next-month svg {
+  fill: var(--muted) !important;
+}
+
+.flatpickr-months .flatpickr-prev-month:hover svg,
+.flatpickr-months .flatpickr-next-month:hover svg {
+  fill: var(--text) !important;
 }
 
 .filter-apply {
