@@ -43,57 +43,12 @@ You write 12 lines. Developer accepts.
 - Read `{"ai_lines": 30}` → add 12 → write `{"ai_lines": 42}`
 """.trimIndent()
 
-  // Forceful wording for Gemini — injected into .gemini/context.md using markers
-  // so it auto-loads without the developer having to add it manually each session
-  private val GEMINI_BLOCK = """
-<!-- ghostline -->
-MANDATORY RULE — DO NOT SKIP:
-Every time you write or modify code and the developer accepts it, you MUST immediately update `.ghostline/session.json`.
-This is not optional. Do it after every single code response without being asked.
-
-Steps:
-1. Read `.ghostline/session.json` (create as {"ai_lines":0} if missing)
-2. Count the net NEW lines you wrote (additions minus deletions, positive only)
-3. Add to ai_lines and write back
-
-Format: {"ai_lines": 42} — one field, never reset to 0, only increment.
-<!-- ghostline -->
-""".trimIndent()
-
-  // Legacy files that used to have ghostline blocks injected — clean them up.
-  // .gemini/context.md is excluded here because we now write to it directly.
-  private val LEGACY_FILES = listOf(
-    ".github/copilot-instructions.md",
-    "CLAUDE.md",
-    ".cursorrules",
-    ".windsurfrules",
-  )
 
   fun setup(project: Project) {
     val root = project.basePath ?: return
-    cleanLegacyInjections(root)
     writeInstructionsFile(root)
-    writeGeminiContext(root)
     initSessionFile(root)
     watchSessionFile(root)
-  }
-
-  private fun cleanLegacyInjections(root: String) {
-    for (relativePath in LEGACY_FILES) {
-      val file = File(root, relativePath)
-      try {
-        if (!file.exists()) continue
-        val content = file.readText()
-        // Remove <!-- ghostline --> blocks
-        var cleaned = content.replace(Regex("<!-- ghostline -->[\\s\\S]*?<!-- ghostline -->\\n*"), "").trimStart()
-        // Remove # ghostline blocks (old .cursorrules style)
-        cleaned = cleaned.replace(Regex("# ghostline[\\s\\S]*?# ghostline\\n*"), "").trimStart()
-        if (cleaned != content) {
-          file.writeText(cleaned)
-          LocalFileSystem.getInstance().refreshAndFindFileByPath(file.absolutePath)
-        }
-      } catch (_: Exception) {}
-    }
   }
 
   private fun writeInstructionsFile(root: String) {
@@ -102,27 +57,6 @@ Format: {"ai_lines": 42} — one field, never reset to 0, only increment.
     try {
       dir.mkdirs()
       file.writeText(INSTRUCTIONS_MD)
-      LocalFileSystem.getInstance().refreshAndFindFileByPath(file.absolutePath)
-    } catch (_: Exception) {}
-  }
-
-  // Injects the ghostline block into .gemini/context.md so Gemini Code Assist
-  // auto-loads the instructions every session without any manual steps.
-  private fun writeGeminiContext(root: String) {
-    val file = File(root, ".gemini/context.md")
-    try {
-      val existing = if (file.exists()) file.readText() else ""
-      val marker = "<!-- ghostline -->"
-      if (existing.contains(marker)) {
-        // Update existing block in place
-        val updated = existing.replace(Regex("<!-- ghostline -->[\\s\\S]*?<!-- ghostline -->"), GEMINI_BLOCK)
-        if (updated != existing) file.writeText(updated)
-      } else {
-        // Append block — preserve any content the developer already has
-        val sep = if (existing.isEmpty() || existing.endsWith("\n")) "" else "\n"
-        file.parentFile?.mkdirs()
-        file.writeText(existing + sep + "\n" + GEMINI_BLOCK + "\n")
-      }
       LocalFileSystem.getInstance().refreshAndFindFileByPath(file.absolutePath)
     } catch (_: Exception) {}
   }
