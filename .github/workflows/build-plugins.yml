@@ -1,10 +1,6 @@
 name: Build Plugins
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'packages/**'
   release:
     types: [created]
   workflow_dispatch:

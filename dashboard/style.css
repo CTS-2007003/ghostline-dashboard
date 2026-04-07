@@ -348,6 +348,31 @@ th {
   border-bottom: 1px solid var(--border);
 }
 
+th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+th.sortable:hover { color: var(--text); }
+
+th.sortable::after {
+  content: ' ↕';
+  opacity: 0.3;
+  font-size: 10px;
+}
+
+th.sort-desc::after {
+  content: ' ↓';
+  opacity: 1;
+  color: var(--ai-light);
+}
+
+th.sort-asc::after {
+  content: ' ↑';
+  opacity: 1;
+  color: var(--ai-light);
+}
+
 td {
   padding: 12px;
   border-bottom: 1px solid var(--border);

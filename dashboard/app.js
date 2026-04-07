@@ -4,6 +4,7 @@ const REFRESH_INTERVAL = 60_000
 
 let summaryData = null
 let activeTeam = ''  // '' = all teams
+let sortState = { col: 'total', asc: false }  // default: total desc
 
 // Active filter state
 let activeFilter = { type: 'last30', from: null, to: null }
@@ -133,27 +134,39 @@ function renderTeamTable(devs, range) {
     return
   }
 
-  const rows = devs
-    .map(dev => ({ dev, ...computeDevTotals(dev, range) }))
-    .sort((a, b) => b.total - a.total)
-
-  tbody.innerHTML = rows.map(({ dev, total, ai }) => {
-    const human = total - ai  // sanitize() guarantees ai <= total, so never negative
+  const rows = devs.map(dev => {
+    const { total, ai } = computeDevTotals(dev, range)
+    const human = total - ai
     const pct = total > 0 ? Math.min(100, Math.round((ai / total) * 100)) : 0
-    return `
-      <tr>
-        <td><strong>${esc(dev.display_name || dev.username)}</strong></td>
-        <td>${fmt(total)}</td>
-        <td style="color:var(--ai-light)">${fmt(ai)}</td>
-        <td style="color:var(--human-light)">${fmt(human)}</td>
-        <td>
-          <div class="ai-pct-bar">
-            <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
-            ${pct}%
-          </div>
-        </td>
-      </tr>`
-  }).join('')
+    return { dev, total, ai, human, pct }
+  })
+
+  const { col, asc } = sortState
+  rows.sort((a, b) => {
+    const diff = a[col] - b[col]
+    return asc ? diff : -diff
+  })
+
+  // Update header indicators
+  document.querySelectorAll('th.sortable').forEach(th => {
+    const active = th.dataset.col === col
+    th.classList.toggle('sort-asc', active && asc)
+    th.classList.toggle('sort-desc', active && !asc)
+  })
+
+  tbody.innerHTML = rows.map(({ dev, total, ai, human, pct }) => `
+    <tr>
+      <td><strong>${esc(dev.display_name || dev.username)}</strong></td>
+      <td>${fmt(total)}</td>
+      <td style="color:var(--ai-light)">${fmt(ai)}</td>
+      <td style="color:var(--human-light)">${fmt(human)}</td>
+      <td>
+        <div class="ai-pct-bar">
+          <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+          ${pct}%
+        </div>
+      </td>
+    </tr>`).join('')
 }
 
 // ── Apply filter & re-render ──────────────────────────────────────────────────
@@ -309,6 +322,16 @@ async function refresh() {
 // Show user's local timezone so date ranges are unambiguous
 document.getElementById('tzBadge').textContent =
   Intl.DateTimeFormat().resolvedOptions().timeZone
+
+document.querySelectorAll('th.sortable').forEach(th => {
+  th.addEventListener('click', () => {
+    const col = th.dataset.col
+    sortState = col === sortState.col
+      ? { col, asc: !sortState.asc }   // same column → flip direction
+      : { col, asc: false }             // new column → start descending
+    applyFilter()
+  })
+})
 
 initFilterBar()
 document.getElementById('teamFilter').addEventListener('change', e => {
