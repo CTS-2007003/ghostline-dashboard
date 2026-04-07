@@ -21,7 +21,6 @@ data class DevData(
   val username: String,
   var display_name: String = "",
   var team: String = "",
-  var ides: MutableList<String> = mutableListOf(),
   var total_lines_written: Int = 0,
   var total_ai_lines: Int = 0,
   var history: MutableList<HistoryEntry> = mutableListOf(),
@@ -84,11 +83,11 @@ object GitHubFlusher {
       val data = existing ?: DevData(username = username, display_name = displayName, team = team)
       data.display_name = displayName
       if (team.isNotBlank()) data.team = team
-      if (!data.ides.contains("intellij")) data.ides.add("intellij")
       data.total_lines_written += effectiveTotal
       data.total_ai_lines += aiSnap
       data.last_updated = ZonedDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
 
+      if (data.history == null) data.history = mutableListOf()
       val today = LocalDate.now().toString()
       val entry = data.history.find { it.date == today }
       if (entry != null) {
