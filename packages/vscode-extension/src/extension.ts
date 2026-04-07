@@ -7,8 +7,10 @@ import { setupWorkspace } from './workspace'
 
 let flushTimer: NodeJS.Timeout | undefined
 let statusBar: vscode.StatusBarItem
+let storedContext: vscode.ExtensionContext | undefined
 
 export async function activate(context: vscode.ExtensionContext) {
+  storedContext = context
   statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100)
   statusBar.text = '$(ghost) Ghostline'
   statusBar.tooltip = 'Ghostline: AI line tracker active'
@@ -47,9 +49,9 @@ export async function activate(context: vscode.ExtensionContext) {
   )
 }
 
-export async function deactivate(context?: vscode.ExtensionContext) {
+export async function deactivate() {
   if (flushTimer) clearInterval(flushTimer)
-  if (context) await flush(context)
+  if (storedContext) await flush(storedContext)
 }
 
 function showStatus() {
