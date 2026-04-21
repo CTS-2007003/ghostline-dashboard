@@ -9,6 +9,9 @@ let sortState = { col: 'total', asc: false }  // default: total desc
 // Active filter state
 let activeFilter = { type: 'last30', from: null, to: null }
 
+// Cache for on-demand archive fetches: key = "username-year", value = entry[]
+let archiveCache = {}
+
 // ── Date helpers ──────────────────────────────────────────────────────────────
 // Always use local date strings to avoid UTC offset shifting "today" to yesterday
 
@@ -58,6 +61,62 @@ function sanitize({ total, ai }) {
   return { total: t, ai: a }
 }
 
+// Returns the date string 90 days ago (the archive cutoff)
+function archiveCutoffStr() {
+  const d = new Date()
+  d.setDate(d.getDate() - 90)
+  return toLocalDateStr(d)
+}
+
+// Fetches archive files for any years the range requires, populates archiveCache
+async function fetchArchiveForRange(range) {
+  if (!range?.from) return
+  const cutoff = archiveCutoffStr()
+  if (range.from >= cutoff) return  // entire range is within the active window
+
+  const fromYear = parseInt(range.from.slice(0, 4))
+  // Archive only holds data older than cutoff, so we only need up to cutoff's year
+  const toYear = Math.min(
+    parseInt((range.to || cutoff).slice(0, 4)),
+    parseInt(cutoff.slice(0, 4))
+  )
+
+  const fetches = []
+  for (const dev of summaryData.developers) {
+    for (let y = fromYear; y <= toYear; y++) {
+      const key = `${dev.username}-${y}`
+      if (key in archiveCache) continue  // already fetched (or attempted)
+      archiveCache[key] = []             // reserve slot so parallel calls don't double-fetch
+      fetches.push(
+        fetch(`${GITHUB_RAW}/data/archive/${key}.json`, { cache: 'reload' })
+          .then(r => r.ok ? r.json() : [])
+          .catch(() => [])
+          .then(entries => { archiveCache[key] = entries })
+      )
+    }
+  }
+  if (fetches.length) await Promise.all(fetches)
+}
+
+// Returns a dev's history merged with any relevant archived entries
+function getEffectiveHistory(dev, range) {
+  const active = dev.history || []
+  if (!range?.from || range.from >= archiveCutoffStr()) return active
+
+  const fromYear = parseInt(range.from.slice(0, 4))
+  // Only read archive years that were actually fetched (same ceiling as fetchArchiveForRange)
+  const toYear = Math.min(
+    parseInt((range.to || archiveCutoffStr()).slice(0, 4)),
+    parseInt(archiveCutoffStr().slice(0, 4))
+  )
+  const archived = []
+  for (let y = fromYear; y <= toYear; y++) {
+    const entries = archiveCache[`${dev.username}-${y}`] || []
+    archived.push(...entries)
+  }
+  return [...archived, ...active]
+}
+
 function computeTotals(devs, range) {
   if (!range) {
     // Sum from filtered devs so team filter applies to All Time too
@@ -68,7 +127,7 @@ function computeTotals(devs, range) {
   }
   let total = 0, ai = 0
   for (const dev of devs) {
-    for (const entry of (dev.history || [])) {
+    for (const entry of getEffectiveHistory(dev, range)) {
       if (entry.date >= range.from && entry.date <= range.to) {
         total += entry.total || 0
         ai += entry.ai || 0  // guard against missing ai field in old data
@@ -83,7 +142,7 @@ function computeDevTotals(dev, range) {
     return sanitize({ total: dev.total_lines_written, ai: dev.total_ai_lines })
   }
   let total = 0, ai = 0
-  for (const entry of (dev.history || [])) {
+  for (const entry of getEffectiveHistory(dev, range)) {
     if (entry.date >= range.from && entry.date <= range.to) {
       total += entry.total || 0
       ai += entry.ai || 0
@@ -176,11 +235,15 @@ function filteredDevs() {
   return summaryData.developers.filter(d => (d.team || '') === activeTeam)
 }
 
-function applyFilter() {
+async function applyFilter() {
   if (!summaryData) return
 
   const devs = filteredDevs()
   const range = getDateRange(activeFilter)
+
+  // Fetch any archive files needed for this date range (no-op if range is recent)
+  await fetchArchiveForRange(range)
+
   const totals = computeTotals(devs, range)
 
   renderCards(totals, devs)
@@ -282,8 +345,9 @@ async function refresh() {
   try {
     const fresh = await fetchAll()
     summaryData = fresh
+    archiveCache = {}  // clear so re-filtered archive ranges fetch fresh data
     populateTeamFilter(summaryData.developers)
-    applyFilter()  // renderCards updates lastUpdated with real value
+    await applyFilter()  // renderCards updates lastUpdated with real value
     pulse.style.background = ''
   } catch (e) {
     console.warn('Ghostline:', e.message)

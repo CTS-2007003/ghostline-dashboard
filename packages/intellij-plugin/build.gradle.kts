@@ -17,7 +17,7 @@ dependencies {
 }
 
 intellij {
-  version.set("2025.1")
+  version.set("2024.1")   // build against 2024.1 — compatible with 2024.x and 2025.x
   type.set("IC")
   plugins.set(listOf())
 }
@@ -36,7 +36,7 @@ tasks {
     kotlinOptions.jvmTarget = "17"
   }
   patchPluginXml {
-    sinceBuild.set("251")
+    sinceBuild.set("241")   // IntelliJ 2024.1+
     // untilBuild not set — compatible with all future versions
   }
   // Not needed in CI — just indexes settings for the IDE search bar

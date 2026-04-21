@@ -1,0 +1,98 @@
+name: Archive Old History
+
+on:
+  workflow_dispatch:  # manual only — run once a month or when needed
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Archive history older than 90 days
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs')
+            const path = require('path')
+
+            const dataDir = 'data'
+            const archiveDir = 'data/archive'
+
+            // Ensure archive dir exists
+            if (!fs.existsSync(archiveDir)) fs.mkdirSync(archiveDir, { recursive: true })
+
+            // Read index
+            const indexPath = path.join(dataDir, 'index.json')
+            if (!fs.existsSync(indexPath)) {
+              console.log('No index.json found — nothing to archive')
+              return
+            }
+            const usernames = JSON.parse(fs.readFileSync(indexPath, 'utf-8'))
+
+            const cutoff = new Date()
+            cutoff.setDate(cutoff.getDate() - 90)
+            const cutoffStr = cutoff.toISOString().slice(0, 10)
+            console.log(`Archiving entries older than ${cutoffStr}`)
+
+            let totalArchived = 0
+
+            for (const username of usernames) {
+              const devPath = path.join(dataDir, `${username}.json`)
+              if (!fs.existsSync(devPath)) continue
+
+              const dev = JSON.parse(fs.readFileSync(devPath, 'utf-8'))
+              if (!dev.history?.length) continue
+
+              const keep = dev.history.filter(e => e.date >= cutoffStr)
+              const old  = dev.history.filter(e => e.date < cutoffStr)
+
+              if (!old.length) {
+                console.log(`${username}: nothing to archive`)
+                continue
+              }
+
+              // Group old entries by year and append to archive files
+              const byYear = {}
+              for (const entry of old) {
+                const year = entry.date.slice(0, 4)
+                if (!byYear[year]) byYear[year] = []
+                byYear[year].push(entry)
+              }
+
+              for (const [year, entries] of Object.entries(byYear)) {
+                const archivePath = path.join(archiveDir, `${username}-${year}.json`)
+                let existing = []
+                if (fs.existsSync(archivePath)) {
+                  existing = JSON.parse(fs.readFileSync(archivePath, 'utf-8'))
+                }
+                // Merge, deduplicate by date, sort
+                const merged = [...existing, ...entries]
+                const deduped = Object.values(
+                  Object.fromEntries(merged.map(e => [e.date, e]))
+                ).sort((a, b) => a.date.localeCompare(b.date))
+                fs.writeFileSync(archivePath, JSON.stringify(deduped, null, 2))
+                console.log(`${username}: archived ${entries.length} entries to ${username}-${year}.json`)
+                totalArchived += entries.length
+              }
+
+              // Write back trimmed dev file
+              dev.history = keep
+              fs.writeFileSync(devPath, JSON.stringify(dev, null, 2))
+            }
+
+            console.log(`Done — ${totalArchived} entries archived total`)
+
+      - name: Commit archived files
+        run: |
+          git config user.name  "ghostline-bot"
+          git config user.email "ghostline-bot@users.noreply.github.com"
+          git add data/
+          git diff --staged --quiet && echo "Nothing to commit" || \
+            git commit -m "ghostline: archive history older than 90 days [skip ci]"
+          git push

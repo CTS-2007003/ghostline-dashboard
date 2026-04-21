@@ -85,7 +85,7 @@ object GitHubFlusher {
       if (team.isNotBlank()) data.team = team
       data.total_lines_written += effectiveTotal
       data.total_ai_lines += aiSnap
-      data.last_updated = ZonedDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+      data.last_updated = ZonedDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX"))
 
       if (data.history == null) data.history = mutableListOf()
       val today = LocalDate.now().toString()
