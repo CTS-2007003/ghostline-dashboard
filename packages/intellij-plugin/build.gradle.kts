@@ -37,7 +37,7 @@ tasks {
   }
   patchPluginXml {
     sinceBuild.set("241")   // IntelliJ 2024.1+
-    // untilBuild not set — compatible with all future versions
+    untilBuild.set("")      // no upper limit — works on 2024.x, 2025.x and beyond
   }
   // Not needed in CI — just indexes settings for the IDE search bar
   buildSearchableOptions {
