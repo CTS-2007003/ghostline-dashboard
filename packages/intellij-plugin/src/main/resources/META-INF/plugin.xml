@@ -45,24 +45,12 @@
   </extensions>
 
   <actions>
-    <group id="com.ghostline.MenuGroup" text="Ghostline" popup="true">
+    <action
+      id="com.ghostline.Activate"
+      class="com.ghostline.GhostlineActivateAction"
+      text="Ghostline: Activate"
+      description="Activate Ghostline and run setup if needed">
       <add-to-group group-id="ToolsMenu" anchor="last"/>
-      <action id="com.ghostline.Activate"
-              class="com.ghostline.GhostlineActivateAction"
-              text="Activate / Setup"
-              description="Activate Ghostline and run setup if needed"/>
-      <action id="com.ghostline.TogglePause"
-              class="com.ghostline.GhostlineTogglePauseAction"
-              text="Pause Tracking"
-              description="Pause or resume line count tracking"/>
-      <action id="com.ghostline.ResetSession"
-              class="com.ghostline.GhostlineResetSessionAction"
-              text="Reset Session"
-              description="Discard unsaved line count for this session"/>
-      <action id="com.ghostline.FlushNow"
-              class="com.ghostline.GhostlineFlushNowAction"
-              text="Flush Now"
-              description="Push current line counts to GitHub immediately"/>
-    </group>
+    </action>
   </actions>
 </idea-plugin>

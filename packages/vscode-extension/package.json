@@ -21,18 +21,6 @@
       {
         "command": "ghostline.activate",
         "title": "Ghostline: Activate"
-      },
-      {
-        "command": "ghostline.togglePause",
-        "title": "Ghostline: Pause / Resume Tracking"
-      },
-      {
-        "command": "ghostline.resetSession",
-        "title": "Ghostline: Reset Session"
-      },
-      {
-        "command": "ghostline.flushNow",
-        "title": "Ghostline: Flush Now"
       }
     ],
     "configuration": {

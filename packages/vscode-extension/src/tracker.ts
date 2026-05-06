@@ -5,12 +5,10 @@ export interface Session {
 }
 
 const session: Session = { totalLines: 0 }
-let paused = false
 
 export function startTracking(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.workspace.onDidChangeTextDocument(event => {
-      if (paused) return
       if (event.document.uri.scheme !== 'file') return
 
       for (const change of event.contentChanges) {
@@ -22,9 +20,6 @@ export function startTracking(context: vscode.ExtensionContext) {
     })
   )
 }
-
-export function setPaused(value: boolean) { paused = value }
-export function isPaused(): boolean { return paused }
 
 export function getSession(): Readonly<Session> {
   return { ...session }

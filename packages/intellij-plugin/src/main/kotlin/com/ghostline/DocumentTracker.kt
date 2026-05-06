@@ -24,7 +24,6 @@ class DocumentTracker : FileEditorManagerListener {
 
     val listener = object : DocumentListener {
       override fun documentChanged(event: DocumentEvent) {
-        if (SessionStore.getInstance().paused) return
         val linesAdded   = event.newFragment.count { it == '\n' }
         val linesRemoved = event.oldFragment.count { it == '\n' }
         val net = linesAdded - linesRemoved
