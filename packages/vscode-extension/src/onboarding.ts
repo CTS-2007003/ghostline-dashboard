@@ -30,7 +30,7 @@ export async function runOnboardingIfNeeded(context: vscode.ExtensionContext) {
 async function wizard(context: vscode.ExtensionContext) {
   // ── Step 1: Dashboard repo ───────────────────────────────────────────────
   const repo = await vscode.window.showInputBox({
-    title: 'Ghostline Setup (1/3) — Dashboard Repo',
+    title: 'Ghostline Setup (1/5) — Dashboard Repo',
     prompt: 'Enter the GitHub repo that will store your team dashboard',
     placeHolder: 'myorg/ghostline-dashboard',
     ignoreFocusOut: true,
@@ -58,7 +58,7 @@ async function wizard(context: vscode.ExtensionContext) {
   }
 
   const token = await vscode.window.showInputBox({
-    title: 'Ghostline Setup (2/3) — GitHub Token',
+    title: 'Ghostline Setup (2/5) — GitHub Token',
     prompt: `Paste your GitHub Personal Access Token (repo: ${repo})`,
     placeHolder: 'ghp_... or github_pat_...',
     password: true,

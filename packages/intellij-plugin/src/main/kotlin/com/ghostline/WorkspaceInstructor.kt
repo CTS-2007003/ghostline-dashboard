@@ -1,5 +1,6 @@
 package com.ghostline
 
+import com.intellij.openapi.Disposable
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.LocalFileSystem
 import java.io.File
@@ -48,7 +49,7 @@ You write 12 lines. Developer accepts.
     val root = project.basePath ?: return
     writeInstructionsFile(root)
     initSessionFile(root)
-    watchSessionFile(root)
+    watchSessionFile(root, project)  // project is Disposable — listener removed on project close
   }
 
   private fun writeInstructionsFile(root: String) {
@@ -74,13 +75,18 @@ You write 12 lines. Developer accepts.
 
   // Watches session.json via IntelliJ VFS — recreates it immediately if deleted mid-session
   // so git operations or manual deletes don't permanently lose the AI line count slot.
-  private fun watchSessionFile(root: String) {
+  // The listener is scoped to the project's Disposable so it is removed automatically
+  // when the project closes — no listener accumulation across project open/close cycles.
+  private fun watchSessionFile(root: String, disposable: Disposable) {
     val sessionPath = File(root, ".ghostline/session.json").absolutePath
-    LocalFileSystem.getInstance().addVirtualFileListener(object : com.intellij.openapi.vfs.VirtualFileListener {
-      override fun fileDeleted(event: com.intellij.openapi.vfs.VirtualFileEvent) {
-        if (event.file.path == sessionPath) initSessionFile(root)
-      }
-    })
+    LocalFileSystem.getInstance().addVirtualFileListener(
+      object : com.intellij.openapi.vfs.VirtualFileListener {
+        override fun fileDeleted(event: com.intellij.openapi.vfs.VirtualFileEvent) {
+          if (event.file.path == sessionPath) initSessionFile(root)
+        }
+      },
+      disposable
+    )
   }
 
   fun readAndResetSessionFile(root: String): Int {

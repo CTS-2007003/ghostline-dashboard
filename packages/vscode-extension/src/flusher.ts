@@ -1,6 +1,6 @@
 import * as vscode from 'vscode'
 import { Octokit } from '@octokit/rest'
-import { getTotalLines, getDevLines, getTestLines, getSession, resetSession } from './tracker'
+import { getTotalLines, getDevLines, getTestLines, resetSession } from './tracker'
 import { readAndResetSessionFile } from './workspace'
 import { readPending, writePending, clearPending, nowIso } from './localStats'
 
@@ -54,8 +54,8 @@ async function readFile(octokit: Octokit, owner: string, repo: string, path: str
 let syncing = false
 
 /**
- * Flush local stats + push to GitHub.
- * - Always writes local stats first (data safe even if GitHub fails).
+ * Push session counts to GitHub.
+ * - Caller must call flushLocal() first to persist local stats before this runs.
  * - Merges any pending data from a previous failed sync.
  * - Writes pending.json before the GitHub call so a failure is retried next open.
  * - Returns 'synced' | 'nothing' | 'no-config'. Throws on network error.
@@ -65,7 +65,6 @@ export async function flush(context: vscode.ExtensionContext): Promise<FlushResu
   syncing = true
 
   try {
-    const sessionMap = getSession()
     const totalSnap  = getTotalLines()
     const devSnap    = getDevLines()
     const testSnap   = getTestLines()

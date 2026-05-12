@@ -188,6 +188,10 @@ object GitHubFlusher {
    */
   @Synchronized
   fun pushPending() {
+    // Persist any lines typed in the startup window before retrying the pending push,
+    // so a crash after this point doesn't lose them from local stats.
+    flushLocal()
+
     val pending = LocalStatsWriter.readPending() ?: return
     val settings = GhostlineSettings.getInstance()
 

@@ -90,6 +90,7 @@ function flushLocal() {
 async function retryPending(context: vscode.ExtensionContext) {
   if (!readPending()) return
   try {
+    flushLocal()  // persist any lines typed before the 30s retry fires
     await flush(context)
   } catch {
     // still failing — pending.json preserved, retry next open

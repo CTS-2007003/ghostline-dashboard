@@ -50,12 +50,13 @@ object OnboardingService {
       .get().build()
 
     return try {
-      val res = client.newCall(req).execute()
-      when (res.code) {
-        200 -> null
-        401 -> "Token is invalid or expired."
-        404 -> "Repo \"$repo\" not found. Check the name and token permissions."
-        else -> "GitHub returned HTTP ${res.code}."
+      client.newCall(req).execute().use { res ->
+        when (res.code) {
+          200  -> null
+          401  -> "Token is invalid or expired."
+          404  -> "Repo \"$repo\" not found. Check the name and token permissions."
+          else -> "GitHub returned HTTP ${res.code}."
+        }
       }
     } catch (e: Exception) {
       "Could not reach GitHub: ${e.message}"
