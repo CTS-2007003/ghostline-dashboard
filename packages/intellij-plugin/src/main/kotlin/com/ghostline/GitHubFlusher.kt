@@ -123,6 +123,7 @@ object GitHubFlusher {
       log.info("Ghostline: flush complete — wrote $effectiveTotal total ($devSnap dev, $testSnap test, $aiSnap AI)")
     } catch (t: Throwable) {
       log.error("Ghostline: flush failed", t)
+      throw t  // re-throw so GhostlineSyncAction can show a "Sync failed" notification
     }
   }
 

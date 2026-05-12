@@ -9,12 +9,7 @@ const session = new Map<string, ExtLines>()
 
 function isTestFile(filePath: string): boolean {
   const base = path.basename(filePath, path.extname(filePath)).toLowerCase()
-  return (
-    base === 'test' || base === 'tests' || base === 'spec' || base === 'specs' ||
-    base.startsWith('test') || base.endsWith('test') ||
-    base.startsWith('spec') || base.endsWith('spec') ||
-    base.includes('test') || base.includes('spec')
-  )
+  return base.includes('test') || base.includes('spec')
 }
 
 export function startTracking(context: vscode.ExtensionContext) {
@@ -42,8 +37,9 @@ export function startTracking(context: vscode.ExtensionContext) {
   )
 }
 
-export function getSession(): ReadonlyMap<string, ExtLines> {
-  return session
+/** Returns a snapshot copy of the current session — safe to iterate and pass around. */
+export function getSession(): Map<string, ExtLines> {
+  return new Map(session)
 }
 
 export function getTotalLines(): number {

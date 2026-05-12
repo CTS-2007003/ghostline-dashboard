@@ -63,6 +63,10 @@ let writtenSnapshot = new Map<string, { dev: number; test: number }>()
 function flushLocal() {
   const current = getSession()
   const delta = new Map<string, { dev: number; test: number }>()
+  // Compute the new snapshot separately — only commit it if the write succeeds.
+  // If we updated writtenSnapshot before the write and the write throws, the next
+  // flushLocal() would see zero delta and silently lose those lines.
+  const nextSnapshot = new Map(writtenSnapshot)
 
   for (const [ext, lines] of current) {
     const written = writtenSnapshot.get(ext) ?? { dev: 0, test: 0 }
@@ -70,11 +74,16 @@ function flushLocal() {
     const dTest = lines.test - written.test
     if (dDev > 0 || dTest > 0) {
       delta.set(ext, { dev: Math.max(0, dDev), test: Math.max(0, dTest) })
-      writtenSnapshot.set(ext, { dev: lines.dev, test: lines.test })
+      nextSnapshot.set(ext, { dev: lines.dev, test: lines.test })
     }
   }
 
-  writeLocalStatsDelta(delta)
+  try {
+    writeLocalStatsDelta(delta)
+    writtenSnapshot = nextSnapshot  // only advance snapshot on successful write
+  } catch {
+    // write failed (disk full, locked) — keep writtenSnapshot unchanged so next call retries
+  }
 }
 
 async function syncToDashboard(context: vscode.ExtensionContext) {

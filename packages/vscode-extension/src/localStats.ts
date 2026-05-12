@@ -42,7 +42,9 @@ export function writeLocalStatsDelta(delta: Map<string, ExtLines>): void {
   existing.last_updated = nowIso()
 
   const file = statsPath()
-  const tmp = file + '.tmp'
+  // Use a process-specific temp name so a concurrent IntelliJ write
+  // (which uses stats.json.ij.tmp) can't overwrite our temp file mid-rename.
+  const tmp = file + '.vscode.tmp'
   fs.writeFileSync(tmp, JSON.stringify(existing, null, 2), 'utf-8')
   fs.renameSync(tmp, file)
 }

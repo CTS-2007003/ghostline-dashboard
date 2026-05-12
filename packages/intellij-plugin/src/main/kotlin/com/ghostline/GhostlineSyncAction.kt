@@ -26,24 +26,23 @@ class GhostlineSyncAction : AnAction() {
       return
     }
 
-    val session = SessionStore.getInstance()
-    val total = session.totalLines()
+    // Snapshot total before the background task — flush() resets the session,
+    // so we'd read 0 if we checked after.
+    val totalBefore = SessionStore.getInstance().totalLines()
 
     ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Ghostline: Syncing to dashboard…", false) {
       override fun run(indicator: ProgressIndicator) {
         indicator.isIndeterminate = true
         try {
           GitHubFlusher.flush()
-
-          val msg = if (total == 0)
-            "Nothing new to sync."
+          val msg = if (totalBefore == 0)
+            "Nothing new to sync (no lines typed since last sync)."
           else
-            "Synced ${total} lines to dashboard. Check https://github.com/${settings.githubRepo}"
-
+            "Synced $totalBefore lines to dashboard."
           notify(project, msg, NotificationType.INFORMATION)
         } catch (t: Throwable) {
-          log.error("Ghostline: sync failed", t)
-          notify(project, "Sync failed: ${t.message}", NotificationType.ERROR)
+          // flush() re-throws on GitHub error — surface it to the user
+          notify(project, "Sync failed: ${t.message ?: t.javaClass.simpleName}", NotificationType.ERROR)
         }
       }
     })

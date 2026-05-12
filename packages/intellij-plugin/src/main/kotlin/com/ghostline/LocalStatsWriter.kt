@@ -4,10 +4,15 @@ import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.reflect.TypeToken
 import java.io.File
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
-data class ExtLines(val dev: Int, val test: Int)
+// var fields required — Gson on Java 17 cannot reliably set val (final) fields via
+// Unsafe.putObject, so deserialization would silently leave them at 0, and the next
+// write would wipe the existing stats with zeroed values.
+data class ExtLines(var dev: Int = 0, var test: Int = 0)
 
 data class LocalStats(
   var last_updated: String = "",
@@ -53,9 +58,21 @@ object LocalStatsWriter {
     stats.last_updated = ZonedDateTime.now().format(fmt)
 
     val file = statsFile()
-    val tmp = File(file.parentFile, "stats.json.tmp")
+    // Use a process-specific temp name so a concurrent VS Code write
+    // (which uses stats.json.vscode.tmp) can't overwrite our temp file mid-rename.
+    val tmp = File(file.parentFile, "stats.json.ij.tmp")
     tmp.writeText(gson.toJson(stats))
-    // Atomic rename — safe for concurrent VS Code + IntelliJ writes on the same machine
-    tmp.renameTo(file)
+
+    // Files.move with REPLACE_EXISTING + ATOMIC_MOVE is the reliable cross-platform
+    // rename on Java — File.renameTo() silently returns false on Windows when the
+    // target already exists and another process has it open.
+    try {
+      Files.move(tmp.toPath(), file.toPath(),
+        StandardCopyOption.REPLACE_EXISTING,
+        StandardCopyOption.ATOMIC_MOVE)
+    } catch (_: Exception) {
+      // ATOMIC_MOVE not supported on all filesystems (e.g. cross-device); fall back
+      Files.move(tmp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING)
+    }
   }
 }

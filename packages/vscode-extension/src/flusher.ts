@@ -107,7 +107,7 @@ export async function flush(context: vscode.ExtensionContext, force = false) {
     }
 
     // Write delta to local stats BEFORE resetting in-memory
-    writeLocalStatsDelta(new Map(sessionMap))
+    writeLocalStatsDelta(sessionMap)
 
     // Reset in-memory immediately (before network — prevents double-count on concurrent sync)
     resetSession()
