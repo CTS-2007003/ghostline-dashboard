@@ -2,104 +2,144 @@
   "username": "cts-2007003",
   "display_name": "Vishnu",
   "team": "Magicals",
-  "total_lines_written": 11174,
-  "total_ai_lines": 5134,
+  "total_lines_written": 11203,
+  "total_ai_lines": 5154,
+  "dev_lines_written": 14,
+  "test_lines_written": 15,
   "history": [
     {
       "date": "2026-04-04",
       "total": 86,
-      "ai": 36
+      "ai": 36,
+      "dev": 0,
+      "test": 0
     },
     {
       "date": "2026-04-06",
       "total": 466,
-      "ai": 0
+      "ai": 0,
+      "dev": 0,
+      "test": 0
     },
     {
       "date": "2026-04-07",
       "total": 411,
-      "ai": 66
+      "ai": 66,
+      "dev": 0,
+      "test": 0
     },
     {
       "date": "2026-04-10",
       "total": 241,
-      "ai": 48
+      "ai": 48,
+      "dev": 0,
+      "test": 0
     },
     {
       "date": "2026-04-13",
       "total": 1857,
-      "ai": 140
+      "ai": 140,
+      "dev": 0,
+      "test": 0
     },
     {
       "date": "2026-04-14",
       "total": 634,
-      "ai": 524
+      "ai": 524,
+      "dev": 0,
+      "test": 0
     },
     {
       "date": "2026-04-15",
       "total": 687,
-      "ai": 507
+      "ai": 507,
+      "dev": 0,
+      "test": 0
     },
     {
       "date": "2026-04-16",
       "total": 745,
-      "ai": 593
+      "ai": 593,
+      "dev": 0,
+      "test": 0
     },
     {
       "date": "2026-04-17",
       "total": 4,
-      "ai": 0
+      "ai": 0,
+      "dev": 0,
+      "test": 0
     },
     {
       "date": "2026-04-20",
       "total": 16,
-      "ai": 2
+      "ai": 2,
+      "dev": 0,
+      "test": 0
     },
     {
       "date": "2026-04-22",
       "total": 512,
-      "ai": 59
+      "ai": 59,
+      "dev": 0,
+      "test": 0
     },
     {
       "date": "2026-04-23",
       "total": 1353,
-      "ai": 57
+      "ai": 57,
+      "dev": 0,
+      "test": 0
     },
     {
       "date": "2026-04-27",
       "total": 74,
-      "ai": 57
+      "ai": 57,
+      "dev": 0,
+      "test": 0
     },
     {
       "date": "2026-04-29",
       "total": 22,
-      "ai": 4
+      "ai": 4,
+      "dev": 0,
+      "test": 0
     },
     {
       "date": "2026-04-30",
       "total": 317,
-      "ai": 70
+      "ai": 70,
+      "dev": 0,
+      "test": 0
     },
     {
       "date": "2026-05-04",
       "total": 212,
-      "ai": 70
+      "ai": 70,
+      "dev": 0,
+      "test": 0
     },
     {
       "date": "2026-05-05",
       "total": 135,
-      "ai": 86
+      "ai": 86,
+      "dev": 0,
+      "test": 0
     },
     {
       "date": "2026-05-06",
       "total": 3119,
-      "ai": 2813
+      "ai": 2813,
+      "dev": 0,
+      "test": 0
     },
     {
       "date": "2026-05-12",
-      "total": 283,
-      "ai": 2
+      "total": 312,
+      "ai": 22,
+      "dev": 14,
+      "test": 15
     }
   ],
-  "last_updated": "2026-05-12T16:08:26+05:30"
+  "last_updated": "2026-05-12T17:20:20+05:30"
 }
