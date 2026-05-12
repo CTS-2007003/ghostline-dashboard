@@ -53,10 +53,15 @@ class DocumentTracker : FileEditorManagerListener {
   override fun selectionChanged(event: FileEditorManagerEvent) {}
 
   companion object {
-    /** Returns true if the filename (without extension) indicates a test file. */
+    /** Returns true if the filename (without extension) indicates a test file,
+     *  based on the comma-separated patterns in Settings → Ghostline → Test file patterns. */
     fun isTestFile(nameWithoutExtension: String): Boolean {
       val n = nameWithoutExtension.lowercase()
-      return n.contains("test") || n.contains("spec")
+      val raw = GhostlineSettings.getInstance().testPatterns
+      val patterns = raw.split(",")
+        .map { it.trim().lowercase() }
+        .filter { it.isNotEmpty() }
+      return patterns.any { n.contains(it) }
     }
   }
 }

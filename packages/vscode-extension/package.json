@@ -49,6 +49,11 @@
           "type": "string",
           "default": "",
           "description": "Your team name (e.g. Frontend, Backend, Mobile)"
+        },
+        "ghostline.testPatterns": {
+          "type": "string",
+          "default": "test,spec",
+          "description": "Comma-separated words — files whose name contains any of these are counted as test lines (e.g. test,spec,e2e,integration)"
         }
       }
     }

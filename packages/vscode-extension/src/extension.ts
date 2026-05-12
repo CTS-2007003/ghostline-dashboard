@@ -1,5 +1,5 @@
 import * as vscode from 'vscode'
-import { startTracking, getTotalLines, getDevLines, getTestLines, getSession, resetSession } from './tracker'
+import { startTracking, getTotalLines, getDevLines, getTestLines, getSession } from './tracker'
 import { flush } from './flusher'
 import { setToken } from './auth'
 import { runOnboardingIfNeeded } from './onboarding'
@@ -43,7 +43,8 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push({ dispose: () => clearInterval(localTimer) })
 
   // On open — silently retry any pending sync from last session (30s delay lets IDE settle)
-  setTimeout(() => retryPending(context), 30_000)
+  const retryTimeout = setTimeout(() => retryPending(context), 30_000)
+  context.subscriptions.push({ dispose: () => clearTimeout(retryTimeout) })
 }
 
 export async function deactivate() {

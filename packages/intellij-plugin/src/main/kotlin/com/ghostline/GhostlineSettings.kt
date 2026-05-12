@@ -9,7 +9,8 @@ class GhostlineSettings : PersistentStateComponent<GhostlineSettings.State> {
     var githubRepo: String = "",
     var githubUsername: String = "",
     var displayName: String = "",
-    var team: String = ""
+    var team: String = "",
+    var testPatterns: String = "test,spec"
   )
 
   private var state = State()
@@ -29,6 +30,10 @@ class GhostlineSettings : PersistentStateComponent<GhostlineSettings.State> {
   var team: String
     get() = state.team
     set(v) { state.team = v }
+
+  var testPatterns: String
+    get() = state.testPatterns
+    set(v) { state.testPatterns = v }
 
   override fun getState() = state
   override fun loadState(s: State) { state = s }

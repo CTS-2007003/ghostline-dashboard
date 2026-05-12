@@ -13,6 +13,7 @@ class GhostlineConfigurable : Configurable {
   private var usernameField: JBTextField? = null
   private var displayNameField: JBTextField? = null
   private var teamField: JBTextField? = null
+  private var testPatternsField: JBTextField? = null
   private var rootPanel: JComponent? = null
 
   override fun getDisplayName() = "Ghostline"
@@ -94,6 +95,17 @@ class GhostlineConfigurable : Configurable {
           }
         }
       }
+      group("Tracking") {
+        row("Test file patterns:") {
+          textField()
+            .columns(30)
+            .comment("Comma-separated words — files whose name contains any of these are counted as test lines (e.g. test,spec,e2e,integration)")
+            .applyToComponent {
+              text = settings.testPatterns
+              testPatternsField = this
+            }
+        }
+      }
       group("Local Stats") {
         row {
           label("Line counts are saved locally to ~/.ghostline/stats.json")
@@ -111,7 +123,8 @@ class GhostlineConfigurable : Configurable {
     return repoField?.text?.trim() != settings.githubRepo ||
       usernameField?.text?.trim() != settings.githubUsername ||
       displayNameField?.text?.trim() != settings.displayName ||
-      teamField?.text?.trim() != settings.team
+      teamField?.text?.trim() != settings.team ||
+      testPatternsField?.text?.trim() != settings.testPatterns
   }
 
   override fun apply() {
@@ -119,6 +132,7 @@ class GhostlineConfigurable : Configurable {
     settings.githubUsername = usernameField?.text?.trim() ?: ""
     settings.displayName = displayNameField?.text?.trim() ?: ""
     settings.team = teamField?.text?.trim() ?: ""
+    settings.testPatterns = testPatternsField?.text?.trim()?.ifBlank { "test,spec" } ?: "test,spec"
   }
 
   override fun reset() {
@@ -126,5 +140,6 @@ class GhostlineConfigurable : Configurable {
     usernameField?.text = settings.githubUsername
     displayNameField?.text = settings.displayName
     teamField?.text = settings.team
+    testPatternsField?.text = settings.testPatterns
   }
 }
