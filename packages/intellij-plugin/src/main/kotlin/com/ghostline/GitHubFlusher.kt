@@ -14,6 +14,7 @@ import java.time.LocalDate
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Base64
+import java.util.concurrent.ConcurrentHashMap
 
 enum class FlushResult { SYNCED, NOTHING, NO_CONFIG }
 
@@ -50,6 +51,34 @@ object GitHubFlusher {
   private val JSON = "application/json".toMediaType()
   private val fmt  = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX")
 
+  // Tracks what's already been written to local stats — avoids double-counting
+  // on repeated 15-min writes and on flush(). Owned here so both the timer
+  // (flushLocal) and the GitHub flush path share the same snapshot.
+  private val localWrittenSnapshot = ConcurrentHashMap<String, ExtLines>()
+
+  /**
+   * Write the delta (lines typed since last local write) to ~/.ghostline/stats.json.
+   * Called every 15 minutes by AppLifecycleHandler and at the start of flush().
+   */
+  @Synchronized
+  fun flushLocal() {
+    val session = SessionStore.getInstance()
+    val current = session.snapshot()
+    val delta   = mutableMapOf<String, ExtLines>()
+
+    for ((ext, lines) in current) {
+      val written = localWrittenSnapshot[ext] ?: ExtLines(0, 0)
+      val dDev  = lines.dev  - written.dev
+      val dTest = lines.test - written.test
+      if (dDev > 0 || dTest > 0) {
+        delta[ext] = ExtLines(maxOf(0, dDev), maxOf(0, dTest))
+        localWrittenSnapshot[ext] = ExtLines(lines.dev, lines.test)
+      }
+    }
+
+    if (delta.isNotEmpty()) LocalStatsWriter.writeDelta(delta)
+  }
+
   /**
    * Write local stats + push to GitHub.
    * - Always writes local stats and resets session first.
@@ -63,14 +92,15 @@ object GitHubFlusher {
     val session  = SessionStore.getInstance()
     val settings = GhostlineSettings.getInstance()
 
-    val snapshot  = session.snapshot()
     val totalSnap = session.totalLines()
     val devSnap   = session.devLines()
     val testSnap  = session.testLines()
 
-    // Always write local stats and reset session first — data is safe even if GitHub fails
-    LocalStatsWriter.writeDelta(snapshot)
+    // Write only the delta not yet persisted locally (avoids double-counting with the 15-min timer)
+    flushLocal()
     session.reset()
+    // Clear snapshot — session is now 0, next flushLocal() starts fresh
+    localWrittenSnapshot.clear()
 
     val aiSnap = ProjectManager.getInstance().openProjects
       .mapNotNull { it.basePath }
@@ -210,41 +240,43 @@ object GitHubFlusher {
   }
 
   private fun ensureInIndex(token: String, owner: String, repo: String, username: String, retries: Int = 1) {
-    try {
-      val getReq = Request.Builder()
-        .url("https://api.github.com/repos/$owner/$repo/contents/data/index.json")
-        .header("Authorization", "token $token")
-        .header("Accept", "application/vnd.github.v3+json")
-        .get().build()
+    val getReq = Request.Builder()
+      .url("https://api.github.com/repos/$owner/$repo/contents/data/index.json")
+      .header("Authorization", "token $token")
+      .header("Accept", "application/vnd.github.v3+json")
+      .get().build()
 
-      val res = client.newCall(getReq).execute()
-      val listType = object : TypeToken<MutableList<String>>() {}.type
-
-      val (index, sha) = if (res.isSuccessful) {
-        val body = gson.fromJson(res.body?.string(), Map::class.java)
+    val listType = object : TypeToken<MutableList<String>>() {}.type
+    val (index, sha) = client.newCall(getReq).execute().use { res ->
+      if (res.isSuccessful) {
+        val body    = gson.fromJson(res.body?.string(), Map::class.java)
         val content = String(Base64.getMimeDecoder().decode(body["content"] as String))
         Pair(gson.fromJson<MutableList<String>>(content, listType), body["sha"] as String?)
       } else {
         Pair(mutableListOf(), null)
       }
+    }
 
-      if (index.contains(username)) return
-      index.add(username); index.sort()
+    if (index.contains(username)) return
+    index.add(username); index.sort()
 
-      val encoded = Base64.getEncoder().encodeToString(gson.toJson(index).toByteArray())
-      val bodyMap = mutableMapOf("message" to "ghostline: register $username [skip ci]", "content" to encoded)
-      if (sha != null) bodyMap["sha"] = sha
+    val encoded = Base64.getEncoder().encodeToString(gson.toJson(index).toByteArray())
+    val bodyMap = mutableMapOf("message" to "ghostline: register $username [skip ci]", "content" to encoded)
+    if (sha != null) bodyMap["sha"] = sha
 
-      val putRes = client.newCall(Request.Builder()
-        .url("https://api.github.com/repos/$owner/$repo/contents/data/index.json")
-        .header("Authorization", "token $token")
-        .header("Accept", "application/vnd.github.v3+json")
-        .put(gson.toJson(bodyMap).toRequestBody(JSON))
-        .build()).execute()
-
-      if (!putRes.isSuccessful && putRes.code == 422 && retries > 0)
-        ensureInIndex(token, owner, repo, username, retries - 1)
-    } catch (_: Exception) {}
+    client.newCall(Request.Builder()
+      .url("https://api.github.com/repos/$owner/$repo/contents/data/index.json")
+      .header("Authorization", "token $token")
+      .header("Accept", "application/vnd.github.v3+json")
+      .put(gson.toJson(bodyMap).toRequestBody(JSON))
+      .build()).execute().use { putRes ->
+      if (!putRes.isSuccessful) {
+        if (putRes.code == 422 && retries > 0)
+          ensureInIndex(token, owner, repo, username, retries - 1)
+        else
+          throw RuntimeException("Index registration failed: HTTP ${putRes.code}")
+      }
+    }
   }
 
   private fun readFile(token: String, owner: String, repo: String, path: String): Pair<DevData?, String?> {
@@ -254,14 +286,14 @@ object GitHubFlusher {
       .header("Accept", "application/vnd.github.v3+json")
       .get().build()
 
-    val res = client.newCall(req).execute()
-    if (!res.isSuccessful) return Pair(null, null)
-
-    val body    = gson.fromJson(res.body?.string(), Map::class.java)
-    val content = String(Base64.getMimeDecoder().decode(body["content"] as String))
-    val sha     = body["sha"] as String
-    val type    = object : TypeToken<DevData>() {}.type
-    return Pair(gson.fromJson(content, type), sha)
+    client.newCall(req).execute().use { res ->
+      if (!res.isSuccessful) return Pair(null, null)
+      val body    = gson.fromJson(res.body?.string(), Map::class.java)
+      val content = String(Base64.getMimeDecoder().decode(body["content"] as String))
+      val sha     = body["sha"] as String
+      val type    = object : TypeToken<DevData>() {}.type
+      return Pair(gson.fromJson(content, type), sha)
+    }
   }
 
   private fun writeFile(token: String, owner: String, repo: String, path: String, data: DevData, sha: String?) {
@@ -274,6 +306,9 @@ object GitHubFlusher {
       .header("Authorization", "token $token")
       .header("Accept", "application/vnd.github.v3+json")
       .put(gson.toJson(bodyMap).toRequestBody(JSON))
-      .build()).execute()
+      .build()).execute().use { res ->
+      if (!res.isSuccessful)
+        throw RuntimeException("GitHub write failed: HTTP ${res.code}")
+    }
   }
 }

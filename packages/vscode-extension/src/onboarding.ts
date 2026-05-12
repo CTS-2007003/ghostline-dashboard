@@ -76,7 +76,7 @@ async function wizard(context: vscode.ExtensionContext) {
   // ── Step 3: Username (auto-detect from git config) ───────────────────────
   const detectedUsername = await detectGitUsername()
   const username = await vscode.window.showInputBox({
-    title: 'Ghostline Setup (3/4) — Your GitHub Username',
+    title: 'Ghostline Setup (3/5) — Your GitHub Username',
     prompt: 'Your GitHub username (used to name your data file)',
     value: detectedUsername ?? '',
     placeHolder: 'your-github-username',
@@ -96,15 +96,14 @@ async function wizard(context: vscode.ExtensionContext) {
   })
   if (!displayName) return
 
-  // ── Step 5: Team ─────────────────────────────────────────────────────────
+  // ── Step 5: Team (optional) ───────────────────────────────────────────────
   const team = await vscode.window.showInputBox({
-    title: 'Ghostline Setup (5/5) — Your Team',
-    prompt: 'Team name shown on the dashboard (e.g. Frontend, Backend, Mobile)',
+    title: 'Ghostline Setup (5/5) — Your Team (optional)',
+    prompt: 'Team name shown on the dashboard (e.g. Frontend, Backend, Mobile). Leave blank to skip.',
     placeHolder: 'e.g. Frontend',
-    ignoreFocusOut: true,
-    validateInput: v => (v ? null : 'Required')
+    ignoreFocusOut: true
   })
-  if (!team) return
+  if (team === undefined) return  // user pressed Escape — abort wizard
 
   // ── Validate ─────────────────────────────────────────────────────────────
   await vscode.window.withProgress(

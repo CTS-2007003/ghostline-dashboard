@@ -2,9 +2,7 @@ import * as vscode from 'vscode'
 import { Octokit } from '@octokit/rest'
 import { getTotalLines, getDevLines, getTestLines, getSession, resetSession } from './tracker'
 import { readAndResetSessionFile } from './workspace'
-import {
-  writeLocalStatsDelta, readPending, writePending, clearPending, nowIso
-} from './localStats'
+import { readPending, writePending, clearPending, nowIso } from './localStats'
 
 export type FlushResult = 'synced' | 'nothing' | 'no-config'
 
@@ -76,8 +74,8 @@ export async function flush(context: vscode.ExtensionContext): Promise<FlushResu
     const aiLines = folders?.reduce((sum, f) =>
       sum + readAndResetSessionFile(f.uri.fsPath), 0) ?? 0
 
-    // Always persist local stats first — data is safe even if GitHub push fails
-    writeLocalStatsDelta(sessionMap)
+    // Local stats are written by the caller (flushLocal) before this function is called.
+    // Reset session here so GitHub receives accurate counts even if local write was skipped.
     resetSession()
 
     const { repo, username, displayName, team } = config()
@@ -183,7 +181,7 @@ async function ensureInIndex(octokit: Octokit, owner: string, repo: string, user
       return
     } catch (e: any) {
       if (attempt === 0 && e?.status === 422) continue
-      return
+      throw e  // propagate so caller knows registration failed
     }
   }
 }

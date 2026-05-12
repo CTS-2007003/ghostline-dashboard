@@ -50,10 +50,12 @@ export async function activate(context: vscode.ExtensionContext) {
 export async function deactivate() {
   if (storedContext) {
     try {
+      flushLocal()           // write any unsaved delta to local stats first
       await flush(storedContext)
-      writtenSnapshot.clear()
     } catch {
       // pending.json preserved — retried on next open
+    } finally {
+      writtenSnapshot.clear()  // session is always reset inside flush()
     }
   }
 }
@@ -89,9 +91,10 @@ async function retryPending(context: vscode.ExtensionContext) {
   if (!readPending()) return
   try {
     await flush(context)
-    writtenSnapshot.clear()
   } catch {
     // still failing — pending.json preserved, retry next open
+  } finally {
+    writtenSnapshot.clear()  // session is always reset inside flush()
   }
 }
 
@@ -100,8 +103,8 @@ async function retryPending(context: vscode.ExtensionContext) {
 async function syncManual(context: vscode.ExtensionContext) {
   statusBar.text = '$(loading~spin) Ghostline'
   try {
+    flushLocal()  // write unsaved delta to local stats before GitHub push
     const result = await flush(context)
-    writtenSnapshot.clear()
     if (result === 'synced') {
       vscode.window.showInformationMessage('Ghostline: Synced to dashboard ✓')
     } else if (result === 'nothing') {
@@ -116,6 +119,7 @@ async function syncManual(context: vscode.ExtensionContext) {
       `Ghostline: Sync failed — ${e?.message ?? 'network error'}. Will retry on next open.`
     )
   } finally {
+    writtenSnapshot.clear()  // session is always reset inside flush()
     updateStatusBar()
   }
 }

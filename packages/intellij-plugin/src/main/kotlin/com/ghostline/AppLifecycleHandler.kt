@@ -2,7 +2,6 @@ package com.ghostline
 
 import com.intellij.ide.AppLifecycleListener
 import com.intellij.openapi.diagnostic.Logger
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
@@ -11,10 +10,6 @@ class AppLifecycleHandler : AppLifecycleListener {
   private val log = Logger.getInstance(AppLifecycleHandler::class.java)
   private val scheduler = Executors.newSingleThreadScheduledExecutor()
   private var localTimer: ScheduledFuture<*>? = null
-
-  // Tracks what's already been written to local stats this session — same approach
-  // as VS Code's writtenSnapshot to avoid double-counting on repeated 15-min writes.
-  private val localWrittenSnapshot = ConcurrentHashMap<String, ExtLines>()
 
   override fun appStarted() {
     log.info("Ghostline: started — syncs automatically on close. Use Tools → Ghostline: Sync Now for immediate sync.")
@@ -47,8 +42,7 @@ class AppLifecycleHandler : AppLifecycleListener {
     // data is never lost even if the GitHub push times out.
     val thread = Thread({
       try {
-        GitHubFlusher.flush()
-        localWrittenSnapshot.clear()
+        GitHubFlusher.flush()  // calls flushLocal() + clears localWrittenSnapshot internally
         log.info("Ghostline: auto-sync on close complete")
       } catch (t: Throwable) {
         log.warn("Ghostline: GitHub sync on close failed — pending.json saved for retry: ${t.message}")
@@ -59,20 +53,5 @@ class AppLifecycleHandler : AppLifecycleListener {
   }
 
   /** Write the delta (lines typed since last local write) to ~/.ghostline/stats.json. */
-  private fun flushLocalDelta() {
-    val current = SessionStore.getInstance().snapshot()
-    val delta   = mutableMapOf<String, ExtLines>()
-
-    for ((ext, lines) in current) {
-      val written = localWrittenSnapshot[ext] ?: ExtLines(0, 0)
-      val dDev  = lines.dev  - written.dev
-      val dTest = lines.test - written.test
-      if (dDev > 0 || dTest > 0) {
-        delta[ext] = ExtLines(maxOf(0, dDev), maxOf(0, dTest))
-        localWrittenSnapshot[ext] = ExtLines(lines.dev, lines.test)
-      }
-    }
-
-    if (delta.isNotEmpty()) LocalStatsWriter.writeDelta(delta)
-  }
+  private fun flushLocalDelta() = GitHubFlusher.flushLocal()
 }
