@@ -208,7 +208,7 @@ function renderTeamTable(devs, range) {
   const rows = devs.map(dev => {
     const { total, ai, dev: devLines, test } = computeDevTotals(dev, range)
     const pct = total > 0 ? Math.min(100, Math.round((ai / total) * 100)) : 0
-    const testPct = total > 0 ? Math.min(100, Math.round((test / total) * 100)) : 0
+    const testPct = (devLines + test) > 0 ? Math.min(100, Math.round((test / (devLines + test)) * 100)) : 0
     return { dev, total, ai, devLines, test, testPct, pct }
   })
 
