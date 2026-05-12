@@ -15,7 +15,13 @@ import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Base64
 
-data class HistoryEntry(val date: String, val total: Int, val ai: Int)
+data class HistoryEntry(
+  val date: String,
+  val total: Int,
+  val ai: Int,
+  val dev: Int = 0,
+  val test: Int = 0
+)
 
 data class DevData(
   val username: String,
@@ -23,6 +29,8 @@ data class DevData(
   var team: String = "",
   var total_lines_written: Int = 0,
   var total_ai_lines: Int = 0,
+  var dev_lines_written: Int = 0,
+  var test_lines_written: Int = 0,
   var history: MutableList<HistoryEntry> = mutableListOf(),
   var last_updated: String = ""
 )
@@ -38,6 +46,7 @@ object GitHubFlusher {
   }
   private val gson: Gson = GsonBuilder().setPrettyPrinting().create()
   private val JSON = "application/json".toMediaType()
+  private val fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX")
 
   @Synchronized
   fun flush() {
@@ -55,23 +64,26 @@ object GitHubFlusher {
     if (parts.size != 2) { log.warn("Ghostline: invalid repo '${settings.githubRepo}' — skipping flush"); return }
     val (owner, repo) = parts
 
-    val totalSnap = session.totalLines
+    // Snapshot before the early-exit check so we don't miss AI lines
+    val snapshot = session.snapshot()
+    val totalSnap = session.totalLines()
+    val devSnap = session.devLines()
+    val testSnap = session.testLines()
 
-    // Read AI lines BEFORE the early-exit check — AI may have written lines
-    // even if the developer typed nothing this interval
     val aiSnap = ProjectManager.getInstance().openProjects
       .mapNotNull { it.basePath }
       .sumOf { WorkspaceInstructor.readAndResetSessionFile(it) }
 
-    log.info("Ghostline: totalSnap=$totalSnap aiSnap=$aiSnap")
+    log.info("Ghostline: totalSnap=$totalSnap devSnap=$devSnap testSnap=$testSnap aiSnap=$aiSnap")
 
     if (totalSnap == 0 && aiSnap == 0) { log.info("Ghostline: nothing to flush"); return }
 
-    // Effective total: if AI wrote lines to files not open in the editor,
-    // DocumentTracker won't have counted them — use AI lines as the floor
+    // Write in-memory delta to local stats before resetting
+    LocalStatsWriter.writeDelta(snapshot)
+
     val effectiveTotal = maxOf(totalSnap, aiSnap)
 
-    // Reset before network calls — prevents double-count if timer + close overlap
+    // Reset session before network calls — prevents double-count
     session.reset()
 
     try {
@@ -85,26 +97,43 @@ object GitHubFlusher {
       if (team.isNotBlank()) data.team = team
       data.total_lines_written += effectiveTotal
       data.total_ai_lines += aiSnap
-      data.last_updated = ZonedDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX"))
+      data.dev_lines_written += devSnap
+      data.test_lines_written += testSnap
+      data.last_updated = ZonedDateTime.now().format(fmt)
 
       if (data.history == null) data.history = mutableListOf()
       val today = LocalDate.now().toString()
-      val entry = data.history.find { it.date == today }
-      if (entry != null) {
-        val idx = data.history.indexOf(entry)
-        data.history[idx] = entry.copy(total = entry.total + effectiveTotal, ai = entry.ai + aiSnap)
+      val existing_entry = data.history.find { it.date == today }
+      if (existing_entry != null) {
+        val idx = data.history.indexOf(existing_entry)
+        data.history[idx] = existing_entry.copy(
+          total = existing_entry.total + effectiveTotal,
+          ai    = existing_entry.ai + aiSnap,
+          dev   = existing_entry.dev + devSnap,
+          test  = existing_entry.test + testSnap
+        )
       } else {
-        data.history.add(HistoryEntry(today, effectiveTotal, aiSnap))
+        data.history.add(HistoryEntry(today, effectiveTotal, aiSnap, devSnap, testSnap))
       }
 
       if (data.history.size > 90) data.history = data.history.takeLast(90).toMutableList()
 
       writeFile(token, owner, repo, path, data, sha)
       ensureInIndex(token, owner, repo, data.username)
-      log.info("Ghostline: flush complete — wrote $effectiveTotal total, $aiSnap AI lines")
+      log.info("Ghostline: flush complete — wrote $effectiveTotal total ($devSnap dev, $testSnap test, $aiSnap AI)")
     } catch (t: Throwable) {
       log.error("Ghostline: flush failed", t)
     }
+  }
+
+  /** Write in-memory delta to local stats only — no GitHub push, no reset.
+   *  Used on IDE close when user hasn't manually synced. */
+  fun flushLocal() {
+    val session = SessionStore.getInstance()
+    val snapshot = session.snapshot()
+    if (snapshot.isEmpty()) return
+    LocalStatsWriter.writeDelta(snapshot)
+    log.info("Ghostline: local stats updated on close")
   }
 
   private fun ensureInIndex(token: String, owner: String, repo: String, username: String, retries: Int = 1) {
@@ -126,7 +155,7 @@ object GitHubFlusher {
         Pair(mutableListOf(), null)
       }
 
-      if (index.contains(username)) return  // already registered, skip write
+      if (index.contains(username)) return
 
       index.add(username)
       index.sort()
@@ -146,7 +175,6 @@ object GitHubFlusher {
         .build()
 
       val putRes = client.newCall(putReq).execute()
-      // 422 = SHA conflict (another dev registered simultaneously) — retry once with fresh SHA
       if (!putRes.isSuccessful && putRes.code == 422 && retries > 0) {
         ensureInIndex(token, owner, repo, username, retries - 1)
       }

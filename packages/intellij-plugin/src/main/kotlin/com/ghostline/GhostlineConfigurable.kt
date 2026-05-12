@@ -13,7 +13,6 @@ class GhostlineConfigurable : Configurable {
   private var usernameField: JBTextField? = null
   private var displayNameField: JBTextField? = null
   private var teamField: JBTextField? = null
-  private var intervalField: JBTextField? = null
   private var rootPanel: JComponent? = null
 
   override fun getDisplayName() = "Ghostline"
@@ -62,7 +61,9 @@ class GhostlineConfigurable : Configurable {
           button("Set GitHub Token") {
             val token = Messages.showPasswordDialog(
               null,
-              "Paste your GitHub Personal Access Token.\n\nRequired: Contents (Read & Write) on \"${settings.githubRepo}\".",
+              "Paste your shared GitHub Personal Access Token.\n\n" +
+              "Required scope: public_repo (classic token).\n" +
+              "Get this token from your team lead.",
               "Ghostline: Set Token",
               null
             )
@@ -93,15 +94,12 @@ class GhostlineConfigurable : Configurable {
           }
         }
       }
-      group("Sync Settings") {
-        row("Flush interval (minutes):") {
-          textField()
-            .columns(5)
-            .comment("How often to push your line counts to GitHub (1–60)")
-            .applyToComponent {
-              text = settings.flushIntervalMinutes.toString()
-              intervalField = this
-            }
+      group("Local Stats") {
+        row {
+          label("Line counts are saved locally to ~/.ghostline/stats.json")
+        }
+        row {
+          label("Use Tools → Ghostline: Sync to Dashboard to push to GitHub.")
         }
       }
     }
@@ -113,8 +111,7 @@ class GhostlineConfigurable : Configurable {
     return repoField?.text?.trim() != settings.githubRepo ||
       usernameField?.text?.trim() != settings.githubUsername ||
       displayNameField?.text?.trim() != settings.displayName ||
-      teamField?.text?.trim() != settings.team ||
-      intervalField?.text?.toIntOrNull() != settings.flushIntervalMinutes
+      teamField?.text?.trim() != settings.team
   }
 
   override fun apply() {
@@ -122,7 +119,6 @@ class GhostlineConfigurable : Configurable {
     settings.githubUsername = usernameField?.text?.trim() ?: ""
     settings.displayName = displayNameField?.text?.trim() ?: ""
     settings.team = teamField?.text?.trim() ?: ""
-    settings.flushIntervalMinutes = intervalField?.text?.toIntOrNull()?.coerceIn(1, 60) ?: 5
   }
 
   override fun reset() {
@@ -130,6 +126,5 @@ class GhostlineConfigurable : Configurable {
     usernameField?.text = settings.githubUsername
     displayNameField?.text = settings.displayName
     teamField?.text = settings.team
-    intervalField?.text = settings.flushIntervalMinutes.toString()
   }
 }

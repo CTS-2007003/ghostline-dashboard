@@ -4,7 +4,7 @@ const REFRESH_INTERVAL = 60_000
 
 let summaryData = null
 let activeTeam = ''  // '' = all teams
-let sortState = { col: 'total', asc: false }  // default: total desc
+let sortState = { col: 'total', asc: false }  // default: total lines descending
 
 // Active filter state
 let activeFilter = { type: 'last30', from: null, to: null }
@@ -55,10 +55,12 @@ function getDateRange(filter) {
 
 // ── Data helpers ──────────────────────────────────────────────────────────────
 
-function sanitize({ total, ai }) {
+function sanitize({ total, ai, dev, test }) {
   const t = Math.max(0, total || 0)
   const a = Math.min(Math.max(0, ai || 0), t)  // ai never negative, never > total
-  return { total: t, ai: a }
+  const d = Math.max(0, dev || 0)
+  const s = Math.max(0, test || 0)
+  return { total: t, ai: a, dev: d, test: s }
 }
 
 // Returns the date string 90 days ago (the archive cutoff)
@@ -119,36 +121,46 @@ function getEffectiveHistory(dev, range) {
 
 function computeTotals(devs, range) {
   if (!range) {
-    // Sum from filtered devs so team filter applies to All Time too
     return sanitize({
       total: devs.reduce((s, d) => s + (d.total_lines_written || 0), 0),
-      ai: devs.reduce((s, d) => s + (d.total_ai_lines || 0), 0)
+      ai:    devs.reduce((s, d) => s + (d.total_ai_lines || 0), 0),
+      dev:   devs.reduce((s, d) => s + (d.dev_lines_written || 0), 0),
+      test:  devs.reduce((s, d) => s + (d.test_lines_written || 0), 0)
     })
   }
-  let total = 0, ai = 0
-  for (const dev of devs) {
-    for (const entry of getEffectiveHistory(dev, range)) {
+  let total = 0, ai = 0, dev = 0, test = 0
+  for (const d of devs) {
+    for (const entry of getEffectiveHistory(d, range)) {
       if (entry.date >= range.from && entry.date <= range.to) {
         total += entry.total || 0
-        ai += entry.ai || 0  // guard against missing ai field in old data
+        ai    += entry.ai   || 0
+        dev   += entry.dev  || 0
+        test  += entry.test || 0
       }
     }
   }
-  return sanitize({ total, ai })
+  return sanitize({ total, ai, dev, test })
 }
 
 function computeDevTotals(dev, range) {
   if (!range) {
-    return sanitize({ total: dev.total_lines_written, ai: dev.total_ai_lines })
+    return sanitize({
+      total: dev.total_lines_written,
+      ai:    dev.total_ai_lines,
+      dev:   dev.dev_lines_written || 0,
+      test:  dev.test_lines_written || 0
+    })
   }
-  let total = 0, ai = 0
+  let total = 0, ai = 0, devLines = 0, testLines = 0
   for (const entry of getEffectiveHistory(dev, range)) {
     if (entry.date >= range.from && entry.date <= range.to) {
-      total += entry.total || 0
-      ai += entry.ai || 0
+      total    += entry.total || 0
+      ai       += entry.ai   || 0
+      devLines += entry.dev  || 0
+      testLines+= entry.test || 0
     }
   }
-  return sanitize({ total, ai })
+  return sanitize({ total, ai, dev: devLines, test: testLines })
 }
 
 // ── Render ────────────────────────────────────────────────────────────────────
@@ -174,13 +186,13 @@ function timeAgo(isoString) {
 }
 
 function renderCards(totals, devs) {
-  const human = totals.total - totals.ai
   const pct = totals.total > 0 ? Math.round((totals.ai / totals.total) * 100) : 0
 
   document.getElementById('totalLines').textContent = fmt(totals.total)
-  document.getElementById('totalAi').textContent = fmt(totals.ai)
-  document.getElementById('totalHuman').textContent = fmt(human)
-  document.getElementById('aiRatio').textContent = pct + '%'
+  document.getElementById('totalDev').textContent   = fmt(totals.dev)
+  document.getElementById('totalTest').textContent  = fmt(totals.test)
+  document.getElementById('totalAi').textContent    = fmt(totals.ai)
+  document.getElementById('aiRatio').textContent    = pct + '%'
 
   const lastSync = devs.map(d => d.last_updated).filter(Boolean).sort().at(-1)
   document.getElementById('lastUpdated').textContent = lastSync ? timeAgo(lastSync) : 'no syncs yet'
@@ -189,21 +201,22 @@ function renderCards(totals, devs) {
 function renderTeamTable(devs, range) {
   const tbody = document.getElementById('teamBody')
   if (!devs.length) {
-    tbody.innerHTML = '<tr><td colspan="5" class="loading">No data yet.</td></tr>'
+    tbody.innerHTML = '<tr><td colspan="7" class="loading">No data yet.</td></tr>'
     return
   }
 
   const rows = devs.map(dev => {
-    const { total, ai } = computeDevTotals(dev, range)
-    const human = total - ai
+    const { total, ai, dev: devLines, test } = computeDevTotals(dev, range)
     const pct = total > 0 ? Math.min(100, Math.round((ai / total) * 100)) : 0
-    return { dev, total, ai, human, pct }
+    const testPct = total > 0 ? Math.min(100, Math.round((test / total) * 100)) : 0
+    return { dev, total, ai, devLines, test, testPct, pct }
   })
 
   const { col, asc } = sortState
   rows.sort((a, b) => {
-    const diff = a[col] - b[col]
-    return asc ? diff : -diff
+    const va = col === 'dev' ? a.devLines : (col === 'testPct' ? a.testPct : a[col])
+    const vb = col === 'dev' ? b.devLines : (col === 'testPct' ? b.testPct : b[col])
+    return asc ? va - vb : vb - va
   })
 
   // Update header indicators
@@ -213,12 +226,14 @@ function renderTeamTable(devs, range) {
     th.classList.toggle('sort-desc', active && !asc)
   })
 
-  tbody.innerHTML = rows.map(({ dev, total, ai, human, pct }) => `
+  tbody.innerHTML = rows.map(({ dev, total, ai, devLines, test, testPct, pct }) => `
     <tr>
       <td><strong>${esc(dev.display_name || dev.username)}</strong></td>
       <td>${fmt(total)}</td>
+      <td style="color:var(--dev-light)">${fmt(devLines)}</td>
+      <td style="color:var(--test-light)">${fmt(test)}</td>
+      <td style="color:var(--muted)">${testPct}%</td>
       <td style="color:var(--ai-light)">${fmt(ai)}</td>
-      <td style="color:var(--human-light)">${fmt(human)}</td>
       <td>
         <div class="ai-pct-bar">
           <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>

@@ -1,7 +1,7 @@
 <idea-plugin>
   <id>com.ghostline</id>
   <name>Ghostline — AI Line Tracker</name>
-  <version>0.1.0</version>
+  <version>0.2.0</version>
   <vendor>Ghostline</vendor>
   <description>Tracks AI-generated vs human-written lines and reports to your team dashboard.</description>
 
@@ -50,6 +50,13 @@
       class="com.ghostline.GhostlineActivateAction"
       text="Ghostline: Activate"
       description="Activate Ghostline and run setup if needed">
+      <add-to-group group-id="ToolsMenu" anchor="last"/>
+    </action>
+    <action
+      id="com.ghostline.Sync"
+      class="com.ghostline.GhostlineSyncAction"
+      text="Ghostline: Sync to Dashboard"
+      description="Push line counts to the GitHub dashboard">
       <add-to-group group-id="ToolsMenu" anchor="last"/>
     </action>
   </actions>

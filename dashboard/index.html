@@ -28,13 +28,17 @@
         <div class="card-label">Total Lines Written</div>
         <div class="card-value" id="totalLines">—</div>
       </div>
+      <div class="card accent-dev">
+        <div class="card-label">Dev Lines</div>
+        <div class="card-value" id="totalDev">—</div>
+      </div>
+      <div class="card accent-test">
+        <div class="card-label">Test Lines</div>
+        <div class="card-value" id="totalTest">—</div>
+      </div>
       <div class="card accent-ai">
         <div class="card-label">AI Lines</div>
         <div class="card-value" id="totalAi">—</div>
-      </div>
-      <div class="card accent-human">
-        <div class="card-label">Human Lines</div>
-        <div class="card-value" id="totalHuman">—</div>
       </div>
       <div class="card">
         <div class="card-label">AI Ratio</div>
@@ -70,14 +74,16 @@
         <thead>
           <tr>
             <th>Developer</th>
-            <th class="sortable" data-col="total">Total Lines</th>
+            <th class="sortable" data-col="total">Total</th>
+            <th class="sortable" data-col="dev">Dev</th>
+            <th class="sortable" data-col="test">Test</th>
+            <th class="sortable" data-col="testPct">Test %</th>
             <th class="sortable" data-col="ai">AI Lines</th>
-            <th class="sortable" data-col="human">Human Lines</th>
             <th class="sortable" data-col="pct">AI %</th>
           </tr>
         </thead>
         <tbody id="teamBody">
-          <tr><td colspan="5" class="loading">Loading...</td></tr>
+          <tr><td colspan="7" class="loading">Loading...</td></tr>
         </tbody>
       </table>
     </section>

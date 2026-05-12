@@ -1,7 +1,16 @@
 import * as vscode from 'vscode'
 import { Octokit } from '@octokit/rest'
-import { getSession, resetSession } from './tracker'
+import { getTotalLines, getDevLines, getTestLines, getSession, resetSession } from './tracker'
 import { readAndResetSessionFile } from './workspace'
+import { writeLocalStatsDelta } from './localStats'
+
+interface HistoryEntry {
+  date: string
+  total: number
+  ai: number
+  dev?: number
+  test?: number
+}
 
 interface DevData {
   username: string
@@ -9,7 +18,9 @@ interface DevData {
   team: string
   total_lines_written: number
   total_ai_lines: number
-  history: { date: string; total: number; ai: number }[]
+  dev_lines_written: number
+  test_lines_written: number
+  history: HistoryEntry[]
   last_updated: string
 }
 
@@ -19,6 +30,18 @@ function today(): string {
   const m = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')
   return `${y}-${m}-${day}`
+}
+
+function nowIso(): string {
+  const now = new Date()
+  const off = -now.getTimezoneOffset()
+  const sign = off >= 0 ? '+' : '-'
+  const pad2 = (n: number) => String(Math.abs(n)).padStart(2, '0')
+  return (
+    `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}` +
+    `T${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}` +
+    `${sign}${pad2(Math.floor(Math.abs(off) / 60))}:${pad2(Math.abs(off) % 60)}`
+  )
 }
 
 function config() {
@@ -42,35 +65,51 @@ async function readFile(octokit: Octokit, owner: string, repo: string, path: str
   }
 }
 
-// Prevents two concurrent flushes from double-counting lines
-let flushing = false
+// Prevents two concurrent syncs from double-counting lines
+let syncing = false
 
+/** Called manually by the "Sync to Dashboard" command. */
 export async function flush(context: vscode.ExtensionContext, force = false) {
-  if (flushing && !force) return
-  // Set flag synchronously before any await so a concurrent call can't slip through
-  flushing = true
+  if (syncing && !force) return
+  syncing = true
 
   try {
-    // Check prerequisites before touching any files — avoids zeroing session.json
-    // when there's no token or config, which would permanently lose AI lines
     const { repo, username, displayName, team } = config()
-    if (!repo || !username) return
+    if (!repo || !username) {
+      vscode.window.showWarningMessage(
+        'Ghostline: Set "githubRepo" and "githubUsername" in settings before syncing.'
+      )
+      return
+    }
 
     const token = await context.secrets.get('ghostline.githubToken')
-    if (!token) return
+    if (!token) {
+      vscode.window.showWarningMessage(
+        'Ghostline: No token found. Run "Ghostline: Set GitHub Token" first.'
+      )
+      return
+    }
 
-    // Read AI lines BEFORE the totalLines check — the AI may have written lines
-    // even if the developer typed nothing this interval
+    // Snapshot in-memory before any async work
+    const sessionMap = getSession()
+    const totalSnap = getTotalLines()
+    const devSnap = getDevLines()
+    const testSnap = getTestLines()
+
+    // Read AI lines from session.json (written by AI tools)
     const folders = vscode.workspace.workspaceFolders
     const aiLines = folders?.reduce((sum, f) =>
       sum + readAndResetSessionFile(f.uri.fsPath), 0) ?? 0
 
-    const session = getSession()
-    if (session.totalLines === 0 && aiLines === 0) return
+    if (totalSnap === 0 && aiLines === 0) {
+      vscode.window.showInformationMessage('Ghostline: Nothing new to sync.')
+      return
+    }
 
-    // Snapshot and reset before network calls so lines typed during the flush
-    // aren't silently dropped
-    const totalSnap = session.totalLines
+    // Write delta to local stats BEFORE resetting in-memory
+    writeLocalStatsDelta(new Map(sessionMap))
+
+    // Reset in-memory immediately (before network — prevents double-count on concurrent sync)
     resetSession()
 
     const [owner, repoName] = repo.split('/')
@@ -79,12 +118,16 @@ export async function flush(context: vscode.ExtensionContext, force = false) {
 
     const { content: existing, sha } = await readFile(octokit, owner, repoName, path)
 
+    const effectiveTotal = Math.max(totalSnap, aiLines)
+
     const current: DevData = existing ?? {
       username,
       display_name: displayName || username,
       team: team || '',
       total_lines_written: 0,
       total_ai_lines: 0,
+      dev_lines_written: 0,
+      test_lines_written: 0,
       history: [],
       last_updated: ''
     }
@@ -92,29 +135,27 @@ export async function flush(context: vscode.ExtensionContext, force = false) {
     if (displayName) current.display_name = displayName
     if (team) current.team = team
 
-    // Effective total: if AI wrote lines to files not open in the editor,
-    // the document change tracker won't have counted them — use AI lines as the floor
-    const aiSnap = aiLines
-    const effectiveTotal = Math.max(totalSnap, aiSnap)
     current.total_lines_written += effectiveTotal
-    current.total_ai_lines += aiSnap
-    // Store with local timezone offset so the raw JSON is human-readable
-    const now = new Date()
-    const off = -now.getTimezoneOffset()
-    const sign = off >= 0 ? '+' : '-'
-    const pad2 = (n: number) => String(Math.abs(n)).padStart(2, '0')
-    current.last_updated =
-      `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}` +
-      `T${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}` +
-      `${sign}${pad2(Math.floor(Math.abs(off) / 60))}:${pad2(Math.abs(off) % 60)}`
+    current.total_ai_lines += aiLines
+    current.dev_lines_written = (current.dev_lines_written || 0) + devSnap
+    current.test_lines_written = (current.test_lines_written || 0) + testSnap
+    current.last_updated = nowIso()
 
     const todayStr = today()
     const historyEntry = current.history.find(h => h.date === todayStr)
     if (historyEntry) {
       historyEntry.total += effectiveTotal
-      historyEntry.ai += aiSnap
+      historyEntry.ai += aiLines
+      historyEntry.dev = (historyEntry.dev ?? 0) + devSnap
+      historyEntry.test = (historyEntry.test ?? 0) + testSnap
     } else {
-      current.history.push({ date: todayStr, total: effectiveTotal, ai: aiSnap })
+      current.history.push({
+        date: todayStr,
+        total: effectiveTotal,
+        ai: aiLines,
+        dev: devSnap,
+        test: testSnap
+      })
     }
 
     current.history = current.history.slice(-90)
@@ -129,10 +170,14 @@ export async function flush(context: vscode.ExtensionContext, force = false) {
     })
 
     await ensureInIndex(octokit, owner, repoName, username)
-  } catch {
-    // Silent fail — will retry on next flush
+
+    vscode.window.showInformationMessage(
+      `Ghostline: Synced — ${effectiveTotal} total lines (${devSnap} dev, ${testSnap} test, ${aiLines} AI).`
+    )
+  } catch (e: any) {
+    vscode.window.showErrorMessage(`Ghostline: Sync failed — ${e?.message ?? e}`)
   } finally {
-    flushing = false
+    syncing = false
   }
 }
 
@@ -154,8 +199,8 @@ async function ensureInIndex(octokit: Octokit, owner: string, repo: string, user
       })
       return
     } catch (e: any) {
-      if (attempt === 0 && e?.status === 422) continue // SHA conflict — retry once
-      return // give up silently on second failure
+      if (attempt === 0 && e?.status === 422) continue
+      return
     }
   }
 }

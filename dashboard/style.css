@@ -10,6 +10,10 @@
   --ai-light: #a78bfa;
   --human: #0891b2;
   --human-light: #67e8f9;
+  --dev: #0891b2;
+  --dev-light: #67e8f9;
+  --test: #d97706;
+  --test-light: #fbbf24;
   --accent: #238636;
 }
 
@@ -127,7 +131,7 @@ main {
 /* Summary Cards */
 .summary-cards {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 16px;
 }
 
@@ -156,6 +160,10 @@ main {
 .accent-ai .card-value { color: var(--ai-light); }
 .accent-human { border-top: 3px solid var(--human); }
 .accent-human .card-value { color: var(--human-light); }
+.accent-dev { border-top: 3px solid var(--dev); }
+.accent-dev .card-value { color: var(--dev-light); }
+.accent-test { border-top: 3px solid var(--test); }
+.accent-test .card-value { color: var(--test-light); }
 
 /* Filter Bar */
 .filter-bar {
@@ -369,6 +377,10 @@ tr:hover td { background: rgba(255,255,255,0.03); }
   border-radius: 3px;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1100px) {
+  .summary-cards { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 700px) {
   .summary-cards { grid-template-columns: repeat(2, 1fr); }
 }

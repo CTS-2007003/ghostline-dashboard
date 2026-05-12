@@ -9,8 +9,7 @@ class GhostlineSettings : PersistentStateComponent<GhostlineSettings.State> {
     var githubRepo: String = "",
     var githubUsername: String = "",
     var displayName: String = "",
-    var team: String = "",
-    var flushIntervalMinutes: Int = 5
+    var team: String = ""
   )
 
   private var state = State()
@@ -30,10 +29,6 @@ class GhostlineSettings : PersistentStateComponent<GhostlineSettings.State> {
   var team: String
     get() = state.team
     set(v) { state.team = v }
-
-  var flushIntervalMinutes: Int
-    get() = state.flushIntervalMinutes
-    set(v) { state.flushIntervalMinutes = v }
 
   override fun getState() = state
   override fun loadState(s: State) { state = s }

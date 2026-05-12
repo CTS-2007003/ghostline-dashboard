@@ -16,18 +16,27 @@ class DocumentTracker : FileEditorManagerListener {
   private val tracked = mutableMapOf<String, Pair<Document, DocumentListener>>()
 
   override fun fileOpened(source: FileEditorManager, file: VirtualFile) {
-    if (file.path.contains("/.ghostline/")) return  // skip session/instruction files
+    if (file.path.contains("/.ghostline/")) return  // skip local stats files
     if (tracked.containsKey(file.url)) return        // already listening on this document
 
     val editor = source.getSelectedEditor(file) ?: return
     val document = (editor as? com.intellij.openapi.fileEditor.TextEditor)?.editor?.document ?: return
+
+    val ext = ".${file.extension ?: "unknown"}"
+    val isTest = isTestFile(file.nameWithoutExtension)
 
     val listener = object : DocumentListener {
       override fun documentChanged(event: DocumentEvent) {
         val linesAdded   = event.newFragment.count { it == '\n' }
         val linesRemoved = event.oldFragment.count { it == '\n' }
         val net = linesAdded - linesRemoved
-        if (net > 0) SessionStore.getInstance().totalLines += net
+        if (net > 0) {
+          if (isTest) {
+            SessionStore.getInstance().addLines(ext, dev = 0, test = net)
+          } else {
+            SessionStore.getInstance().addLines(ext, dev = net, test = 0)
+          }
+        }
       }
     }
 
@@ -42,4 +51,12 @@ class DocumentTracker : FileEditorManagerListener {
   }
 
   override fun selectionChanged(event: FileEditorManagerEvent) {}
+
+  companion object {
+    /** Returns true if the filename (without extension) indicates a test file. */
+    fun isTestFile(nameWithoutExtension: String): Boolean {
+      val n = nameWithoutExtension.lowercase()
+      return n.contains("test") || n.contains("spec")
+    }
+  }
 }
