@@ -2,7 +2,7 @@ import * as vscode from 'vscode'
 import { startTracking, getTotalLines, getDevLines, getTestLines, getSession } from './tracker'
 import { flush } from './flusher'
 import { setToken } from './auth'
-import { runOnboardingIfNeeded } from './onboarding'
+import { runOnboardingIfNeeded, validateAccess } from './onboarding'
 import { setupWorkspace } from './workspace'
 import { writeLocalStatsDelta, readPending } from './localStats'
 
@@ -27,7 +27,8 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('ghostline.activate',  () => {
       vscode.window.showInformationMessage('Ghostline is active and tracking.')
       runOnboardingIfNeeded(context)
-    })
+    }),
+    vscode.commands.registerCommand('ghostline.validateConnection', () => validateConnection(context))
   )
 
   setupWorkspace(context)
@@ -138,6 +139,30 @@ function updateStatusBar() {
     statusBar.text    = `$(ghost) ${total} lines (${dev} dev / ${test} test)`
     statusBar.tooltip = `Ghostline: ${total} lines this session — click to sync`
   }
+}
+
+async function validateConnection(context: vscode.ExtensionContext) {
+  const cfg = vscode.workspace.getConfiguration('ghostline')
+  const repo  = cfg.get<string>('githubRepo', '')
+  const token = await context.secrets.get('ghostline.githubToken')
+
+  if (!repo)  return vscode.window.showWarningMessage('Ghostline: Set a dashboard repo in Settings first.')
+  if (!token) return vscode.window.showWarningMessage('Ghostline: No token found. Run "Ghostline: Set GitHub Token" first.')
+
+  await vscode.window.withProgress(
+    { location: vscode.ProgressLocation.Notification, title: 'Ghostline: Validating connection…', cancellable: false },
+    async () => {
+      const error = await validateAccess(token, repo)
+      if (error) {
+        vscode.window.showErrorMessage(`Ghostline: ${error}`)
+      } else {
+        const [owner, repoName] = repo.split('/')
+        vscode.window.showInformationMessage(
+          `Ghostline: Connection successful! Dashboard: https://${owner}.github.io/${repoName}`
+        )
+      }
+    }
+  )
 }
 
 function showStatus() {

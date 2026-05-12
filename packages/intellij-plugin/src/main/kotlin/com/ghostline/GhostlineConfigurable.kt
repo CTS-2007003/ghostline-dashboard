@@ -1,5 +1,6 @@
 package com.ghostline
 
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.options.Configurable
 import com.intellij.openapi.ui.Messages
 import com.intellij.ui.components.JBTextField
@@ -93,6 +94,30 @@ class GhostlineConfigurable : Configurable {
               }
             }
           }
+          button("Sync Now") {
+            Thread({
+              try {
+                when (GitHubFlusher.flush()) {
+                  FlushResult.SYNCED    -> ApplicationManager.getApplication().invokeLater {
+                    Messages.showInfoMessage("Synced to dashboard ✓", "Ghostline")
+                  }
+                  FlushResult.NOTHING   -> ApplicationManager.getApplication().invokeLater {
+                    Messages.showInfoMessage("Nothing new to sync.", "Ghostline")
+                  }
+                  FlushResult.NO_CONFIG -> ApplicationManager.getApplication().invokeLater {
+                    Messages.showErrorDialog("Set GitHub repo, username, and token first.", "Ghostline")
+                  }
+                }
+              } catch (t: Throwable) {
+                ApplicationManager.getApplication().invokeLater {
+                  Messages.showErrorDialog(
+                    "Sync failed: ${t.message ?: "network error"}. Will retry on next open.",
+                    "Ghostline"
+                  )
+                }
+              }
+            }, "ghostline-manual-sync").start()
+          }
         }
       }
       group("Tracking") {
@@ -108,10 +133,10 @@ class GhostlineConfigurable : Configurable {
       }
       group("Local Stats") {
         row {
-          label("Line counts are saved locally to ~/.ghostline/stats.json")
+          label("Line counts are saved locally to ~/.ghostline/stats.json every 15 minutes.")
         }
         row {
-          label("Use Tools → Ghostline: Sync to Dashboard to push to GitHub.")
+          label("Syncs to GitHub automatically on close, or click Sync Now above.")
         }
       }
     }

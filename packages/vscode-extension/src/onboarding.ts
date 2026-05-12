@@ -135,7 +135,7 @@ async function wizard(context: vscode.ExtensionContext) {
   )
 }
 
-async function validateAccess(token: string, repo: string): Promise<string | null> {
+export async function validateAccess(token: string, repo: string): Promise<string | null> {
   try {
     const [owner, repoName] = repo.split('/')
     const octokit = new Octokit({ auth: token })

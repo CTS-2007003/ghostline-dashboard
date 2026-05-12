@@ -25,6 +25,10 @@
       {
         "command": "ghostline.activate",
         "title": "Ghostline: Activate"
+      },
+      {
+        "command": "ghostline.validateConnection",
+        "title": "Ghostline: Validate Connection"
       }
     ],
     "configuration": {
