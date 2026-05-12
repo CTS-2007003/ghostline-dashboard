@@ -15,24 +15,26 @@ import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Base64
 
+enum class FlushResult { SYNCED, NOTHING, NO_CONFIG }
+
 data class HistoryEntry(
   val date: String,
   val total: Int,
-  val ai: Int,
-  val dev: Int = 0,
-  val test: Int = 0
+  val ai:    Int,
+  val dev:   Int = 0,
+  val test:  Int = 0
 )
 
 data class DevData(
   val username: String,
-  var display_name: String = "",
-  var team: String = "",
-  var total_lines_written: Int = 0,
-  var total_ai_lines: Int = 0,
-  var dev_lines_written: Int = 0,
-  var test_lines_written: Int = 0,
-  var history: MutableList<HistoryEntry> = mutableListOf(),
-  var last_updated: String = ""
+  var display_name:       String                   = "",
+  var team:               String                   = "",
+  var total_lines_written: Int                     = 0,
+  var total_ai_lines:     Int                      = 0,
+  var dev_lines_written:  Int                      = 0,
+  var test_lines_written: Int                      = 0,
+  var history:            MutableList<HistoryEntry> = mutableListOf(),
+  var last_updated:       String                   = ""
 )
 
 object GitHubFlusher {
@@ -46,29 +48,29 @@ object GitHubFlusher {
   }
   private val gson: Gson = GsonBuilder().setPrettyPrinting().create()
   private val JSON = "application/json".toMediaType()
-  private val fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX")
+  private val fmt  = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX")
 
+  /**
+   * Write local stats + push to GitHub.
+   * - Always writes local stats and resets session first.
+   * - Merges any pending data from a previous failed sync.
+   * - Writes pending.json before the GitHub call; clears it on success.
+   * - Returns SYNCED | NOTHING | NO_CONFIG. Throws on network error.
+   */
   @Synchronized
-  fun flush() {
+  fun flush(): FlushResult {
     log.info("Ghostline: flush() called")
-    val session = SessionStore.getInstance()
+    val session  = SessionStore.getInstance()
     val settings = GhostlineSettings.getInstance()
 
-    val token = AuthManager.getInstance().getToken()
-    if (token == null) { log.warn("Ghostline: no token set — skipping flush"); return }
-
-    val username = settings.githubUsername
-    if (username.isBlank()) { log.warn("Ghostline: username not set — skipping flush"); return }
-
-    val parts = settings.githubRepo.split("/")
-    if (parts.size != 2) { log.warn("Ghostline: invalid repo '${settings.githubRepo}' — skipping flush"); return }
-    val (owner, repo) = parts
-
-    // Snapshot before the early-exit check so we don't miss AI lines
-    val snapshot = session.snapshot()
+    val snapshot  = session.snapshot()
     val totalSnap = session.totalLines()
-    val devSnap = session.devLines()
-    val testSnap = session.testLines()
+    val devSnap   = session.devLines()
+    val testSnap  = session.testLines()
+
+    // Always write local stats and reset session first — data is safe even if GitHub fails
+    LocalStatsWriter.writeDelta(snapshot)
+    session.reset()
 
     val aiSnap = ProjectManager.getInstance().openProjects
       .mapNotNull { it.basePath }
@@ -76,65 +78,135 @@ object GitHubFlusher {
 
     log.info("Ghostline: totalSnap=$totalSnap devSnap=$devSnap testSnap=$testSnap aiSnap=$aiSnap")
 
-    if (totalSnap == 0 && aiSnap == 0) { log.info("Ghostline: nothing to flush"); return }
+    val token = AuthManager.getInstance().getToken()
+    if (token == null) { log.warn("Ghostline: no token — skipping GitHub push"); return FlushResult.NO_CONFIG }
 
-    // Write in-memory delta to local stats before resetting
-    LocalStatsWriter.writeDelta(snapshot)
+    val username = settings.githubUsername
+    if (username.isBlank()) { log.warn("Ghostline: username not set"); return FlushResult.NO_CONFIG }
 
-    val effectiveTotal = maxOf(totalSnap, aiSnap)
+    val parts = settings.githubRepo.split("/")
+    if (parts.size != 2) { log.warn("Ghostline: invalid repo '${settings.githubRepo}'"); return FlushResult.NO_CONFIG }
+    val (owner, repo) = parts
 
-    // Reset session before network calls — prevents double-count
-    session.reset()
+    val effectiveTotal  = maxOf(totalSnap, aiSnap)
+    val existingPending = LocalStatsWriter.readPending()
+
+    if (effectiveTotal == 0 && existingPending == null) {
+      log.info("Ghostline: nothing to flush")
+      return FlushResult.NOTHING
+    }
+
+    // Merge current session with any previously failed pending sync
+    val combined = PendingSync(
+      date  = LocalDate.now().toString(),
+      total = effectiveTotal        + (existingPending?.total ?: 0),
+      ai    = aiSnap                + (existingPending?.ai    ?: 0),
+      dev   = devSnap               + (existingPending?.dev   ?: 0),
+      test  = testSnap              + (existingPending?.test  ?: 0)
+    )
+
+    // Write pending BEFORE the GitHub call — if network fails, retried on next open
+    LocalStatsWriter.writePending(combined)
 
     try {
       val path = "data/$username.json"
       val (existing, sha) = readFile(token, owner, repo, path)
 
       val displayName = settings.displayName.ifBlank { username }
-      val team = settings.team
+      val team        = settings.team
       val data = existing ?: DevData(username = username, display_name = displayName, team = team)
-      data.display_name = displayName
+      data.display_name      = displayName
       if (team.isNotBlank()) data.team = team
-      data.total_lines_written += effectiveTotal
-      data.total_ai_lines += aiSnap
-      data.dev_lines_written += devSnap
-      data.test_lines_written += testSnap
-      data.last_updated = ZonedDateTime.now().format(fmt)
+      data.total_lines_written += combined.total
+      data.total_ai_lines      += combined.ai
+      data.dev_lines_written   += combined.dev
+      data.test_lines_written  += combined.test
+      data.last_updated         = ZonedDateTime.now().format(fmt)
 
       if (data.history == null) data.history = mutableListOf()
       val today = LocalDate.now().toString()
-      val existing_entry = data.history.find { it.date == today }
-      if (existing_entry != null) {
-        val idx = data.history.indexOf(existing_entry)
-        data.history[idx] = existing_entry.copy(
-          total = existing_entry.total + effectiveTotal,
-          ai    = existing_entry.ai + aiSnap,
-          dev   = existing_entry.dev + devSnap,
-          test  = existing_entry.test + testSnap
+      val entry = data.history.find { it.date == today }
+      if (entry != null) {
+        val idx = data.history.indexOf(entry)
+        data.history[idx] = entry.copy(
+          total = entry.total + combined.total,
+          ai    = entry.ai    + combined.ai,
+          dev   = entry.dev   + combined.dev,
+          test  = entry.test  + combined.test
         )
       } else {
-        data.history.add(HistoryEntry(today, effectiveTotal, aiSnap, devSnap, testSnap))
+        data.history.add(HistoryEntry(today, combined.total, combined.ai, combined.dev, combined.test))
       }
-
       if (data.history.size > 90) data.history = data.history.takeLast(90).toMutableList()
 
       writeFile(token, owner, repo, path, data, sha)
       ensureInIndex(token, owner, repo, data.username)
-      log.info("Ghostline: flush complete — wrote $effectiveTotal total ($devSnap dev, $testSnap test, $aiSnap AI)")
+
+      // Only clear pending after confirmed success
+      LocalStatsWriter.clearPending()
+      log.info("Ghostline: flush complete — ${combined.total} total (${combined.dev} dev, ${combined.test} test, ${combined.ai} AI)")
+      return FlushResult.SYNCED
     } catch (t: Throwable) {
-      log.error("Ghostline: flush failed", t)
-      throw t  // re-throw so GhostlineSyncAction can show a "Sync failed" notification
+      log.error("Ghostline: GitHub push failed — pending.json preserved for retry", t)
+      throw t  // caller decides whether to show a notification
     }
   }
 
-  /** Write in-memory delta to local stats only — no GitHub push, no reset.
-   *  Used on IDE close when user hasn't manually synced. */
-  fun flushLocal() {
-    val session = SessionStore.getInstance()
-    val snapshot = session.snapshot()
-    if (snapshot.isEmpty()) return
-    LocalStatsWriter.writeDelta(snapshot)
-    log.info("Ghostline: local stats updated on close")
+  /**
+   * Retry a previously failed sync from pending.json.
+   * Called silently on IDE open. No-op if no pending data.
+   */
+  @Synchronized
+  fun pushPending() {
+    val pending = LocalStatsWriter.readPending() ?: return
+    val settings = GhostlineSettings.getInstance()
+
+    val token = AuthManager.getInstance().getToken() ?: run {
+      log.info("Ghostline: pushPending skipped — no token")
+      return
+    }
+    if (settings.githubUsername.isBlank() || settings.githubRepo.isBlank()) return
+
+    val parts = settings.githubRepo.split("/")
+    if (parts.size != 2) return
+    val (owner, repo) = parts
+
+    try {
+      val path = "data/${settings.githubUsername}.json"
+      val (existing, sha) = readFile(token, owner, repo, path)
+
+      val displayName = settings.displayName.ifBlank { settings.githubUsername }
+      val data = existing ?: DevData(username = settings.githubUsername, display_name = displayName, team = settings.team)
+      data.total_lines_written += pending.total
+      data.total_ai_lines      += pending.ai
+      data.dev_lines_written   += pending.dev
+      data.test_lines_written  += pending.test
+      data.last_updated         = ZonedDateTime.now().format(fmt)
+
+      if (data.history == null) data.history = mutableListOf()
+      val today = LocalDate.now().toString()
+      val entry = data.history.find { it.date == today }
+      if (entry != null) {
+        val idx = data.history.indexOf(entry)
+        data.history[idx] = entry.copy(
+          total = entry.total + pending.total,
+          ai    = entry.ai    + pending.ai,
+          dev   = entry.dev   + pending.dev,
+          test  = entry.test  + pending.test
+        )
+      } else {
+        data.history.add(HistoryEntry(today, pending.total, pending.ai, pending.dev, pending.test))
+      }
+      if (data.history.size > 90) data.history = data.history.takeLast(90).toMutableList()
+
+      writeFile(token, owner, repo, path, data, sha)
+      ensureInIndex(token, owner, repo, data.username)
+      LocalStatsWriter.clearPending()
+      log.info("Ghostline: pending sync pushed successfully")
+    } catch (t: Throwable) {
+      log.warn("Ghostline: pending retry failed — will try again next open: ${t.message}")
+      // Don't rethrow — silent failure, pending.json preserved
+    }
   }
 
   private fun ensureInIndex(token: String, owner: String, repo: String, username: String, retries: Int = 1) {
@@ -157,28 +229,21 @@ object GitHubFlusher {
       }
 
       if (index.contains(username)) return
-
-      index.add(username)
-      index.sort()
+      index.add(username); index.sort()
 
       val encoded = Base64.getEncoder().encodeToString(gson.toJson(index).toByteArray())
-      val bodyMap = mutableMapOf(
-        "message" to "ghostline: register $username [skip ci]",
-        "content" to encoded
-      )
+      val bodyMap = mutableMapOf("message" to "ghostline: register $username [skip ci]", "content" to encoded)
       if (sha != null) bodyMap["sha"] = sha
 
-      val putReq = Request.Builder()
+      val putRes = client.newCall(Request.Builder()
         .url("https://api.github.com/repos/$owner/$repo/contents/data/index.json")
         .header("Authorization", "token $token")
         .header("Accept", "application/vnd.github.v3+json")
         .put(gson.toJson(bodyMap).toRequestBody(JSON))
-        .build()
+        .build()).execute()
 
-      val putRes = client.newCall(putReq).execute()
-      if (!putRes.isSuccessful && putRes.code == 422 && retries > 0) {
+      if (!putRes.isSuccessful && putRes.code == 422 && retries > 0)
         ensureInIndex(token, owner, repo, username, retries - 1)
-      }
     } catch (_: Exception) {}
   }
 
@@ -192,29 +257,23 @@ object GitHubFlusher {
     val res = client.newCall(req).execute()
     if (!res.isSuccessful) return Pair(null, null)
 
-    val body = gson.fromJson(res.body?.string(), Map::class.java)
+    val body    = gson.fromJson(res.body?.string(), Map::class.java)
     val content = String(Base64.getMimeDecoder().decode(body["content"] as String))
-    val sha = body["sha"] as String
-
-    val type = object : TypeToken<DevData>() {}.type
+    val sha     = body["sha"] as String
+    val type    = object : TypeToken<DevData>() {}.type
     return Pair(gson.fromJson(content, type), sha)
   }
 
   private fun writeFile(token: String, owner: String, repo: String, path: String, data: DevData, sha: String?) {
     val content = Base64.getEncoder().encodeToString(gson.toJson(data).toByteArray())
-    val bodyMap = mutableMapOf(
-      "message" to "ghostline: sync ${data.username} [skip ci]",
-      "content" to content
-    )
+    val bodyMap = mutableMapOf("message" to "ghostline: sync ${data.username} [skip ci]", "content" to content)
     if (sha != null) bodyMap["sha"] = sha
 
-    val req = Request.Builder()
+    client.newCall(Request.Builder()
       .url("https://api.github.com/repos/$owner/$repo/contents/$path")
       .header("Authorization", "token $token")
       .header("Accept", "application/vnd.github.v3+json")
       .put(gson.toJson(bodyMap).toRequestBody(JSON))
-      .build()
-
-    client.newCall(req).execute()
+      .build()).execute()
   }
 }

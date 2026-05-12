@@ -4,73 +4,69 @@ import { flush } from './flusher'
 import { setToken } from './auth'
 import { runOnboardingIfNeeded } from './onboarding'
 import { setupWorkspace } from './workspace'
-import { writeLocalStatsDelta } from './localStats'
+import { writeLocalStatsDelta, readPending } from './localStats'
 
 let statusBar: vscode.StatusBarItem
 let storedContext: vscode.ExtensionContext | undefined
+let writtenSnapshot = new Map<string, { dev: number; test: number }>()
 
 export async function activate(context: vscode.ExtensionContext) {
   storedContext = context
 
   statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100)
   statusBar.text = '$(ghost) Ghostline'
-  statusBar.tooltip = 'Ghostline: click to sync to dashboard'
+  statusBar.tooltip = 'Ghostline: click to sync now'
   statusBar.command = 'ghostline.sync'
   statusBar.show()
   context.subscriptions.push(statusBar)
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('ghostline.setToken', () => setToken(context)),
+    vscode.commands.registerCommand('ghostline.setToken',  () => setToken(context)),
     vscode.commands.registerCommand('ghostline.showStatus', showStatus),
-    vscode.commands.registerCommand('ghostline.sync', () => syncToDashboard(context)),
-    vscode.commands.registerCommand('ghostline.activate', () => {
+    vscode.commands.registerCommand('ghostline.sync',      () => syncManual(context)),
+    vscode.commands.registerCommand('ghostline.activate',  () => {
       vscode.window.showInformationMessage('Ghostline is active and tracking.')
       runOnboardingIfNeeded(context)
     })
   )
 
-  // Inject AI instruction files for this workspace
   setupWorkspace(context)
-
-  // Track lines written per file extension
   startTracking(context)
-
-  // First-time setup wizard
   runOnboardingIfNeeded(context)
 
   // Update status bar every 30s with live counts
   const statusTimer = setInterval(updateStatusBar, 30_000)
   context.subscriptions.push({ dispose: () => clearInterval(statusTimer) })
 
-  // Flush window loses focus — write local stats so numbers aren't lost
-  context.subscriptions.push(
-    vscode.window.onDidChangeWindowState(state => {
-      if (!state.focused) flushLocal()
-    })
-  )
+  // Every 15 min — write local stats only (crash safety net, no network)
+  const localTimer = setInterval(flushLocal, 15 * 60 * 1000)
+  context.subscriptions.push({ dispose: () => clearInterval(localTimer) })
+
+  // On open — silently retry any pending sync from last session (30s delay lets IDE settle)
+  setTimeout(() => retryPending(context), 30_000)
 }
 
 export async function deactivate() {
-  // Write any unsaved in-memory counts to local stats on exit
-  flushLocal()
+  if (storedContext) {
+    try {
+      await flush(storedContext)
+      writtenSnapshot.clear()
+    } catch {
+      // pending.json preserved — retried on next open
+    }
+  }
 }
 
-/** Persist in-memory delta to ~/.ghostline/stats.json without resetting it.
- *  Safe to call multiple times — the delta is always "what we haven't written yet"
- *  because we track a separate writtenSnapshot. */
-let writtenSnapshot = new Map<string, { dev: number; test: number }>()
+// ── Local-only write (no network) ─────────────────────────────────────────────
 
 function flushLocal() {
-  const current = getSession()
-  const delta = new Map<string, { dev: number; test: number }>()
-  // Compute the new snapshot separately — only commit it if the write succeeds.
-  // If we updated writtenSnapshot before the write and the write throws, the next
-  // flushLocal() would see zero delta and silently lose those lines.
+  const current      = getSession()
+  const delta        = new Map<string, { dev: number; test: number }>()
   const nextSnapshot = new Map(writtenSnapshot)
 
   for (const [ext, lines] of current) {
     const written = writtenSnapshot.get(ext) ?? { dev: 0, test: 0 }
-    const dDev = lines.dev - written.dev
+    const dDev  = lines.dev  - written.dev
     const dTest = lines.test - written.test
     if (dDev > 0 || dTest > 0) {
       delta.set(ext, { dev: Math.max(0, dDev), test: Math.max(0, dTest) })
@@ -80,43 +76,71 @@ function flushLocal() {
 
   try {
     writeLocalStatsDelta(delta)
-    writtenSnapshot = nextSnapshot  // only advance snapshot on successful write
+    writtenSnapshot = nextSnapshot  // only advance on success
   } catch {
-    // write failed (disk full, locked) — keep writtenSnapshot unchanged so next call retries
+    // keep writtenSnapshot unchanged so next tick retries
   }
 }
 
-async function syncToDashboard(context: vscode.ExtensionContext) {
-  statusBar.text = '$(loading~spin) Ghostline'
+// ── Pending retry (silent, on open) ──────────────────────────────────────────
+
+async function retryPending(context: vscode.ExtensionContext) {
+  if (!readPending()) return
   try {
     await flush(context)
-    // After sync, in-memory was reset — also reset writtenSnapshot so local
-    // stats won't try to subtract negative values on the next flushLocal
     writtenSnapshot.clear()
+  } catch {
+    // still failing — pending.json preserved, retry next open
+  }
+}
+
+// ── Manual sync (with user-facing notifications) ──────────────────────────────
+
+async function syncManual(context: vscode.ExtensionContext) {
+  statusBar.text = '$(loading~spin) Ghostline'
+  try {
+    const result = await flush(context)
+    writtenSnapshot.clear()
+    if (result === 'synced') {
+      vscode.window.showInformationMessage('Ghostline: Synced to dashboard ✓')
+    } else if (result === 'nothing') {
+      vscode.window.showInformationMessage('Ghostline: Nothing new to sync.')
+    } else {
+      vscode.window.showWarningMessage(
+        'Ghostline: Set GitHub repo, username, and token in settings first.'
+      )
+    }
+  } catch (e: any) {
+    vscode.window.showErrorMessage(
+      `Ghostline: Sync failed — ${e?.message ?? 'network error'}. Will retry on next open.`
+    )
   } finally {
     updateStatusBar()
   }
 }
 
+// ── Status bar ────────────────────────────────────────────────────────────────
+
 function updateStatusBar() {
-  const dev = getDevLines()
-  const test = getTestLines()
+  const dev   = getDevLines()
+  const test  = getTestLines()
   const total = dev + test
   if (total === 0) {
-    statusBar.text = '$(ghost) Ghostline'
-    statusBar.tooltip = 'Ghostline: click to sync to dashboard'
+    statusBar.text    = '$(ghost) Ghostline'
+    statusBar.tooltip = 'Ghostline: click to sync now'
   } else {
-    statusBar.text = `$(ghost) ${total} lines (${dev} dev / ${test} test)`
+    statusBar.text    = `$(ghost) ${total} lines (${dev} dev / ${test} test)`
     statusBar.tooltip = `Ghostline: ${total} lines this session — click to sync`
   }
 }
 
 function showStatus() {
-  const dev = getDevLines()
-  const test = getTestLines()
+  const dev   = getDevLines()
+  const test  = getTestLines()
   const total = dev + test
-  vscode.window.showInformationMessage(
-    `Ghostline — This session: ${total} lines written (${dev} dev, ${test} test). ` +
-    `Click the status bar or run "Ghostline: Sync to Dashboard" to push to GitHub.`
-  )
+  const pending = readPending()
+  const parts = [`${total} lines this session (${dev} dev, ${test} test).`]
+  if (pending) parts.push(`Pending retry: ${pending.total} lines from previous session.`)
+  parts.push('Syncs automatically on close. Click the status bar to sync now.')
+  vscode.window.showInformationMessage('Ghostline — ' + parts.join(' '))
 }

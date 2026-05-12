@@ -3,7 +3,7 @@
   <name>Ghostline — AI Line Tracker</name>
   <version>0.2.0</version>
   <vendor>Ghostline</vendor>
-  <description>Tracks AI-generated vs human-written lines and reports to your team dashboard.</description>
+  <description>Tracks AI-generated vs human-written lines and reports to your team dashboard. Syncs automatically on IDE close with retry on next open.</description>
 
   <depends>com.intellij.modules.platform</depends>
 
@@ -55,8 +55,8 @@
     <action
       id="com.ghostline.Sync"
       class="com.ghostline.GhostlineSyncAction"
-      text="Ghostline: Sync to Dashboard"
-      description="Push line counts to the GitHub dashboard">
+      text="Ghostline: Sync Now"
+      description="Sync line counts to GitHub dashboard immediately">
       <add-to-group group-id="ToolsMenu" anchor="last"/>
     </action>
   </actions>

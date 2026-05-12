@@ -9,14 +9,33 @@ export interface LocalStats {
   by_extension: Record<string, ExtLines>
 }
 
+export interface PendingSync {
+  date: string
+  total: number
+  ai: number
+  dev: number
+  test: number
+}
+
+function ghostlineDir(): string {
+  return path.join(os.homedir(), '.ghostline')
+}
+
+function ensureDir(): void {
+  if (!fs.existsSync(ghostlineDir())) fs.mkdirSync(ghostlineDir(), { recursive: true })
+}
+
 export function statsPath(): string {
-  return path.join(os.homedir(), '.ghostline', 'stats.json')
+  return path.join(ghostlineDir(), 'stats.json')
+}
+
+function pendingPath(): string {
+  return path.join(ghostlineDir(), 'pending.json')
 }
 
 export function readLocalStats(): LocalStats {
   try {
-    const raw = fs.readFileSync(statsPath(), 'utf-8')
-    return JSON.parse(raw) as LocalStats
+    return JSON.parse(fs.readFileSync(statsPath(), 'utf-8')) as LocalStats
   } catch {
     return { last_updated: '', by_extension: {} }
   }
@@ -26,9 +45,7 @@ export function readLocalStats(): LocalStats {
 export function writeLocalStatsDelta(delta: Map<string, ExtLines>): void {
   if (delta.size === 0) return
 
-  const dir = path.join(os.homedir(), '.ghostline')
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
-
+  ensureDir()
   const existing = readLocalStats()
 
   for (const [ext, lines] of delta) {
@@ -42,14 +59,34 @@ export function writeLocalStatsDelta(delta: Map<string, ExtLines>): void {
   existing.last_updated = nowIso()
 
   const file = statsPath()
-  // Use a process-specific temp name so a concurrent IntelliJ write
-  // (which uses stats.json.ij.tmp) can't overwrite our temp file mid-rename.
+  // Process-specific temp name — avoids collision with concurrent IntelliJ write
   const tmp = file + '.vscode.tmp'
   fs.writeFileSync(tmp, JSON.stringify(existing, null, 2), 'utf-8')
   fs.renameSync(tmp, file)
 }
 
-function nowIso(): string {
+// ── Pending sync (retry on next open if GitHub push fails) ────────────────────
+
+export function readPending(): PendingSync | null {
+  try {
+    return JSON.parse(fs.readFileSync(pendingPath(), 'utf-8')) as PendingSync
+  } catch {
+    return null
+  }
+}
+
+export function writePending(p: PendingSync): void {
+  ensureDir()
+  fs.writeFileSync(pendingPath(), JSON.stringify(p, null, 2), 'utf-8')
+}
+
+export function clearPending(): void {
+  try { fs.unlinkSync(pendingPath()) } catch { /* already gone */ }
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+export function nowIso(): string {
   const now = new Date()
   const off = -now.getTimezoneOffset()
   const sign = off >= 0 ? '+' : '-'
