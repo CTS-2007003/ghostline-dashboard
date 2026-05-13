@@ -97,7 +97,6 @@ class GhostlineConfigurable : Configurable {
           button("Sync Now") {
             Thread({
               try {
-                GitHubFlusher.flushLocal()   // persist unsaved delta before push
                 when (GitHubFlusher.flush()) {
                   FlushResult.SYNCED    -> ApplicationManager.getApplication().invokeLater {
                     Messages.showInfoMessage("Synced to dashboard ✓", "Ghostline")
