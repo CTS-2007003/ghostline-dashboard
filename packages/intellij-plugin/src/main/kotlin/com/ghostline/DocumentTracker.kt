@@ -3,6 +3,7 @@ package com.ghostline
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.editor.event.DocumentEvent
 import com.intellij.openapi.editor.event.DocumentListener
+import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.fileEditor.FileEditorManagerListener
 import com.intellij.openapi.fileEditor.FileEditorManagerEvent
@@ -18,9 +19,11 @@ class DocumentTracker : FileEditorManagerListener {
   override fun fileOpened(source: FileEditorManager, file: VirtualFile) {
     if (file.path.contains("/.ghostline/")) return  // skip local stats files
     if (tracked.containsKey(file.url)) return        // already listening on this document
+    if (!file.isValid || file.isDirectory) return
 
-    val editor = source.getSelectedEditor(file) ?: return
-    val document = (editor as? com.intellij.openapi.fileEditor.TextEditor)?.editor?.document ?: return
+    // Use FileDocumentManager instead of getSelectedEditor() — works for background tabs,
+    // startup tab restoration, and any case where the file isn't the active tab yet.
+    val document = FileDocumentManager.getInstance().getDocument(file) ?: return
 
     val ext = ".${file.extension ?: "unknown"}"
     val isTest = isTestFile(file.nameWithoutExtension)
