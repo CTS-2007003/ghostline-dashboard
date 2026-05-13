@@ -30,6 +30,7 @@ class GhostlineSyncAction : AnAction() {
       override fun run(indicator: ProgressIndicator) {
         indicator.isIndeterminate = true
         try {
+          GitHubFlusher.flushLocal()   // persist unsaved delta before push
           when (GitHubFlusher.flush()) {
             FlushResult.SYNCED    -> notify(project, "Synced to dashboard ✓", NotificationType.INFORMATION)
             FlushResult.NOTHING   -> notify(project, "Nothing new to sync.", NotificationType.INFORMATION)
