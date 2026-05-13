@@ -93,10 +93,10 @@ async function retryPending(context: vscode.ExtensionContext) {
   try {
     flushLocal()  // persist any lines typed before the 30s retry fires
     await flush(context)
+    writtenSnapshot.clear()  // session was reset — clear so next flushLocal() won't re-write
   } catch {
     // still failing — pending.json preserved, retry next open
-  } finally {
-    writtenSnapshot.clear()  // session is always reset inside flush()
+    // writtenSnapshot intentionally left intact so next flushLocal() tick won't double-write
   }
 }
 
@@ -107,6 +107,7 @@ async function syncManual(context: vscode.ExtensionContext) {
   try {
     flushLocal()  // write unsaved delta to local stats before GitHub push
     const result = await flush(context)
+    writtenSnapshot.clear()  // session was reset — clear so next flushLocal() won't re-write
     if (result === 'synced') {
       vscode.window.showInformationMessage('Ghostline: Synced to dashboard ✓')
     } else if (result === 'nothing') {
@@ -117,11 +118,11 @@ async function syncManual(context: vscode.ExtensionContext) {
       )
     }
   } catch (e: any) {
+    // writtenSnapshot intentionally left intact so next flushLocal() tick won't double-write
     vscode.window.showErrorMessage(
       `Ghostline: Sync failed — ${e?.message ?? 'network error'}. Will retry on next open.`
     )
   } finally {
-    writtenSnapshot.clear()  // session is always reset inside flush()
     updateStatusBar()
   }
 }
