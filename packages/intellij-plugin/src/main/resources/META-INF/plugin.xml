@@ -28,13 +28,10 @@
       topic="com.intellij.ide.AppLifecycleListener"/>
   </applicationListeners>
 
-  <extensions defaultExtensionNs="com.intellij">
-    <!-- DocumentTracker is a project service that self-registers as FileEditorManagerListener
-         and scans already-open files on startup — avoids timing issues with projectListeners. -->
-    <projectService serviceImplementation="com.ghostline.DocumentTracker"/>
-  </extensions>
-
   <projectListeners>
+    <listener
+      class="com.ghostline.DocumentTracker"
+      topic="com.intellij.openapi.fileEditor.FileEditorManagerListener"/>
     <listener
       class="com.ghostline.ProjectOpenListener"
       topic="com.intellij.openapi.project.ProjectManagerListener"/>
