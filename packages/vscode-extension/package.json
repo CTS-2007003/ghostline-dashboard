@@ -4,7 +4,7 @@
   "description": "Tracks AI-generated vs human-written lines and reports to your team dashboard.",
   "version": "0.2.0",
   "publisher": "ghostline",
-  "engines": { "vscode": "^1.75.0" },
+  "engines": { "vscode": "^1.85.0" },
   "categories": ["Other"],
   "activationEvents": ["*"],
   "main": "./out/extension.js",

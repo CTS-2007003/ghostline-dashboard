@@ -17,7 +17,7 @@ dependencies {
 }
 
 intellij {
-  version.set("2023.1")   // build against 2023.1 — ensures no APIs newer than that slip in
+  version.set("2024.1")   // build against 2024.1 — compatible with 2024.x and 2025.x
   type.set("IC")
   plugins.set(listOf())
 }
@@ -36,8 +36,8 @@ tasks {
     kotlinOptions.jvmTarget = "17"
   }
   patchPluginXml {
-    sinceBuild.set("231")   // IntelliJ 2023.1+
-    untilBuild.set("")      // no upper limit — works on 2023.x, 2024.x, 2025.x and beyond
+    sinceBuild.set("241")   // IntelliJ 2024.1+
+    untilBuild.set("")      // no upper limit — works on 2024.x, 2025.x and beyond
   }
   // Not needed in CI — just indexes settings for the IDE search bar
   buildSearchableOptions {
