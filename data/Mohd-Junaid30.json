@@ -1,0 +1,19 @@
+{
+  "username": "Mohd-Junaid30",
+  "display_name": "Mohammed Junaid R",
+  "team": "Everest",
+  "total_lines_written": 71,
+  "total_ai_lines": 12,
+  "dev_lines_written": 71,
+  "test_lines_written": 0,
+  "history": [
+    {
+      "date": "2026-05-14",
+      "total": 71,
+      "ai": 12,
+      "dev": 71,
+      "test": 0
+    }
+  ],
+  "last_updated": "2026-05-14T13:19:30+05:30"
+}
