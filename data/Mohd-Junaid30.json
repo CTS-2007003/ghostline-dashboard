@@ -2,9 +2,9 @@
   "username": "Mohd-Junaid30",
   "display_name": "Mohammed Junaid R",
   "team": "Everest",
-  "total_lines_written": 127,
-  "total_ai_lines": 53,
-  "dev_lines_written": 127,
+  "total_lines_written": 231,
+  "total_ai_lines": 133,
+  "dev_lines_written": 231,
   "test_lines_written": 0,
   "history": [
     {
@@ -16,11 +16,11 @@
     },
     {
       "date": "2026-05-18",
-      "total": 56,
-      "ai": 41,
-      "dev": 56,
+      "total": 160,
+      "ai": 121,
+      "dev": 160,
       "test": 0
     }
   ],
-  "last_updated": "2026-05-18T13:35:11+05:30"
+  "last_updated": "2026-05-18T14:00:19+05:30"
 }
