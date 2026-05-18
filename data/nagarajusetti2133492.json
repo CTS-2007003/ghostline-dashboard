@@ -2,10 +2,10 @@
   "username": "nagarajusetti2133492",
   "display_name": "Nagaraju",
   "team": "WNM",
-  "total_lines_written": 253,
+  "total_lines_written": 359,
   "total_ai_lines": 1,
-  "dev_lines_written": 253,
-  "test_lines_written": 0,
+  "dev_lines_written": 347,
+  "test_lines_written": 12,
   "history": [
     {
       "date": "2026-05-14",
@@ -27,7 +27,14 @@
       "ai": 0,
       "dev": 23,
       "test": 0
+    },
+    {
+      "date": "2026-05-18",
+      "total": 106,
+      "ai": 0,
+      "dev": 94,
+      "test": 12
     }
   ],
-  "last_updated": "2026-05-16T13:56:56+05:30"
+  "last_updated": "2026-05-18T22:00:34+05:30"
 }
