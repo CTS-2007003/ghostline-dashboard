@@ -2,9 +2,9 @@
   "username": "RahulRepal123",
   "display_name": "Rahul",
   "team": "Everest",
-  "total_lines_written": 65,
+  "total_lines_written": 126,
   "total_ai_lines": 0,
-  "dev_lines_written": 65,
+  "dev_lines_written": 126,
   "test_lines_written": 0,
   "history": [
     {
@@ -16,11 +16,11 @@
     },
     {
       "date": "2026-05-20",
-      "total": 64,
+      "total": 125,
       "ai": 0,
-      "dev": 64,
+      "dev": 125,
       "test": 0
     }
   ],
-  "last_updated": "2026-05-20T12:03:04+05:30"
+  "last_updated": "2026-05-20T13:06:05+05:30"
 }
