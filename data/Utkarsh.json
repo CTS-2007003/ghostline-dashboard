@@ -2,10 +2,10 @@
   "username": "Utkarsh",
   "display_name": "Utkarsh Mishra",
   "team": "Hercules",
-  "total_lines_written": 181,
-  "total_ai_lines": 30,
-  "dev_lines_written": 63,
-  "test_lines_written": 53,
+  "total_lines_written": 381,
+  "total_ai_lines": 230,
+  "dev_lines_written": 101,
+  "test_lines_written": 110,
   "history": [
     {
       "date": "2026-05-14",
@@ -16,11 +16,11 @@
     },
     {
       "date": "2026-05-20",
-      "total": 101,
-      "ai": 0,
-      "dev": 48,
-      "test": 53
+      "total": 301,
+      "ai": 200,
+      "dev": 86,
+      "test": 110
     }
   ],
-  "last_updated": "2026-05-20T15:30:51+05:30"
+  "last_updated": "2026-05-20T17:54:45+05:30"
 }
