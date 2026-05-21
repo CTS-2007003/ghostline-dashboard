@@ -2,9 +2,9 @@
   "username": "Deepikasadi",
   "display_name": "Sai Deepika Sadi",
   "team": "Everest",
-  "total_lines_written": 2,
+  "total_lines_written": 208,
   "total_ai_lines": 0,
-  "dev_lines_written": 2,
+  "dev_lines_written": 208,
   "test_lines_written": 0,
   "history": [
     {
@@ -13,7 +13,14 @@
       "ai": 0,
       "dev": 2,
       "test": 0
+    },
+    {
+      "date": "2026-05-21",
+      "total": 206,
+      "ai": 0,
+      "dev": 206,
+      "test": 0
     }
   ],
-  "last_updated": "2026-05-14T16:31:41+05:30"
+  "last_updated": "2026-05-21T15:01:02+05:30"
 }
