@@ -2,9 +2,9 @@
   "username": "Harshi0803",
   "display_name": "Harshita Saxena",
   "team": "Everest",
-  "total_lines_written": 1011,
-  "total_ai_lines": 46,
-  "dev_lines_written": 1011,
+  "total_lines_written": 1142,
+  "total_ai_lines": 81,
+  "dev_lines_written": 1142,
   "test_lines_written": 0,
   "history": [
     {
@@ -27,7 +27,14 @@
       "ai": 15,
       "dev": 481,
       "test": 0
+    },
+    {
+      "date": "2026-05-21",
+      "total": 131,
+      "ai": 35,
+      "dev": 131,
+      "test": 0
     }
   ],
-  "last_updated": "2026-05-20T19:54:11+05:30"
+  "last_updated": "2026-05-21T12:06:03+05:30"
 }
