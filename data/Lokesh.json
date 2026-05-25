@@ -1,0 +1,15 @@
+{
+  "username": "Lokesh",
+  "display_name": "Lokesh Pathapati",
+  "team": "Hercules",
+  "total_lines_written": 10,
+  "total_ai_lines": 10,
+  "history": [
+    {
+      "date": "2026-05-25",
+      "total": 10,
+      "ai": 10
+    }
+  ],
+  "last_updated": "2026-05-25T21:22:47+05:30"
+}
