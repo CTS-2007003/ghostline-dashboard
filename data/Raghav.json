@@ -1,0 +1,19 @@
+{
+  "username": "Raghav",
+  "display_name": "Raghav Gupta",
+  "team": "Asteroids",
+  "total_lines_written": 30,
+  "total_ai_lines": 12,
+  "dev_lines_written": 30,
+  "test_lines_written": 0,
+  "history": [
+    {
+      "date": "2026-05-25",
+      "total": 30,
+      "ai": 12,
+      "dev": 30,
+      "test": 0
+    }
+  ],
+  "last_updated": "2026-05-25T16:08:04+05:30"
+}
