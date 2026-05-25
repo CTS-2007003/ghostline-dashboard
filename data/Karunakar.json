@@ -1,0 +1,19 @@
+{
+  "username": "Karunakar",
+  "display_name": "karunakar",
+  "team": "Asteroids",
+  "total_lines_written": 17,
+  "total_ai_lines": 0,
+  "dev_lines_written": 17,
+  "test_lines_written": 0,
+  "history": [
+    {
+      "date": "2026-05-25",
+      "total": 17,
+      "ai": 0,
+      "dev": 17,
+      "test": 0
+    }
+  ],
+  "last_updated": "2026-05-25T13:36:35+05:30"
+}
