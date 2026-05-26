@@ -1,0 +1,19 @@
+{
+  "username": "raviparmarcognizant",
+  "display_name": "ravindra",
+  "team": "Everest",
+  "total_lines_written": 10,
+  "total_ai_lines": 0,
+  "dev_lines_written": 10,
+  "test_lines_written": 0,
+  "history": [
+    {
+      "date": "2026-05-26",
+      "total": 10,
+      "ai": 0,
+      "dev": 10,
+      "test": 0
+    }
+  ],
+  "last_updated": "2026-05-26T13:09:09+05:30"
+}
