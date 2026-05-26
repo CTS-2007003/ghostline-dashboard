@@ -2,10 +2,10 @@
   "username": "rahulshaw7",
   "display_name": "Rahul Shaw",
   "team": "WNM",
-  "total_lines_written": 752,
-  "total_ai_lines": 102,
-  "dev_lines_written": 209,
-  "test_lines_written": 442,
+  "total_lines_written": 1093,
+  "total_ai_lines": 127,
+  "dev_lines_written": 295,
+  "test_lines_written": 697,
   "history": [
     {
       "date": "2026-05-26",
@@ -13,7 +13,14 @@
       "ai": 102,
       "dev": 209,
       "test": 442
+    },
+    {
+      "date": "2026-05-27",
+      "total": 341,
+      "ai": 25,
+      "dev": 86,
+      "test": 255
     }
   ],
-  "last_updated": "2026-05-26T20:33:53+05:30"
+  "last_updated": "2026-05-27T00:17:32+05:30"
 }
