@@ -1,19 +1,19 @@
 {
   "username": "rahulshaw7",
-  "display_name": "rahul shaw",
+  "display_name": "Rahul Shaw",
   "team": "WNM",
-  "total_lines_written": 2,
+  "total_lines_written": 7,
   "total_ai_lines": 2,
-  "dev_lines_written": 0,
+  "dev_lines_written": 5,
   "test_lines_written": 0,
   "history": [
     {
       "date": "2026-05-26",
-      "total": 2,
+      "total": 7,
       "ai": 2,
-      "dev": 0,
+      "dev": 5,
       "test": 0
     }
   ],
-  "last_updated": "2026-05-26T12:20:12+05:30"
+  "last_updated": "2026-05-26T12:26:32+05:30"
 }
