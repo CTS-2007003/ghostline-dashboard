@@ -2,9 +2,9 @@
   "username": "vivek2229387",
   "display_name": "Vivek Dubey",
   "team": "Everest",
-  "total_lines_written": 40,
+  "total_lines_written": 158,
   "total_ai_lines": 21,
-  "dev_lines_written": 19,
+  "dev_lines_written": 137,
   "test_lines_written": 0,
   "history": [
     {
@@ -20,7 +20,14 @@
       "ai": 0,
       "dev": 18,
       "test": 0
+    },
+    {
+      "date": "2026-05-29",
+      "total": 118,
+      "ai": 0,
+      "dev": 118,
+      "test": 0
     }
   ],
-  "last_updated": "2026-05-27T16:46:18+05:30"
+  "last_updated": "2026-05-29T13:42:08+05:30"
 }
