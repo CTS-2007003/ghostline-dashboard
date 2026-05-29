@@ -2,10 +2,10 @@
   "username": "Raghav",
   "display_name": "Raghav Gupta",
   "team": "Asteroids",
-  "total_lines_written": 1377,
+  "total_lines_written": 1562,
   "total_ai_lines": 1151,
-  "dev_lines_written": 77,
-  "test_lines_written": 161,
+  "dev_lines_written": 165,
+  "test_lines_written": 258,
   "history": [
     {
       "date": "2026-05-25",
@@ -20,7 +20,14 @@
       "ai": 0,
       "dev": 47,
       "test": 161
+    },
+    {
+      "date": "2026-05-29",
+      "total": 185,
+      "ai": 0,
+      "dev": 88,
+      "test": 97
     }
   ],
-  "last_updated": "2026-05-27T09:38:38+05:30"
+  "last_updated": "2026-05-29T16:20:51+05:30"
 }
