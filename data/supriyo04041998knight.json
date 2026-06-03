@@ -2,10 +2,10 @@
   "username": "supriyo04041998knight",
   "display_name": "supriyo",
   "team": "WNM",
-  "total_lines_written": 1052,
+  "total_lines_written": 2613,
   "total_ai_lines": 0,
-  "dev_lines_written": 921,
-  "test_lines_written": 131,
+  "dev_lines_written": 1542,
+  "test_lines_written": 1071,
   "history": [
     {
       "date": "2026-05-15",
@@ -48,7 +48,14 @@
       "ai": 0,
       "dev": 130,
       "test": 131
+    },
+    {
+      "date": "2026-06-03",
+      "total": 1561,
+      "ai": 0,
+      "dev": 621,
+      "test": 940
     }
   ],
-  "last_updated": "2026-06-02T15:50:43+05:30"
+  "last_updated": "2026-06-03T17:00:59+05:30"
 }
