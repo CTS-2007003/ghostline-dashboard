@@ -2,9 +2,9 @@
   "username": "raviparmarcognizant",
   "display_name": "ravindra",
   "team": "Everest",
-  "total_lines_written": 152,
+  "total_lines_written": 444,
   "total_ai_lines": 0,
-  "dev_lines_written": 152,
+  "dev_lines_written": 444,
   "test_lines_written": 0,
   "history": [
     {
@@ -27,7 +27,14 @@
       "ai": 0,
       "dev": 4,
       "test": 0
+    },
+    {
+      "date": "2026-06-05",
+      "total": 292,
+      "ai": 0,
+      "dev": 292,
+      "test": 0
     }
   ],
-  "last_updated": "2026-06-03T17:55:46+05:30"
+  "last_updated": "2026-06-05T14:41:42+05:30"
 }
