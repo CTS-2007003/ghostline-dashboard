@@ -2,10 +2,10 @@
   "username": "Karunakar",
   "display_name": "karunakar",
   "team": "Asteroids",
-  "total_lines_written": 1300,
+  "total_lines_written": 2155,
   "total_ai_lines": 122,
-  "dev_lines_written": 804,
-  "test_lines_written": 374,
+  "dev_lines_written": 1569,
+  "test_lines_written": 464,
   "history": [
     {
       "date": "2026-05-25",
@@ -27,7 +27,14 @@
       "ai": 122,
       "dev": 444,
       "test": 374
+    },
+    {
+      "date": "2026-06-05",
+      "total": 855,
+      "ai": 0,
+      "dev": 765,
+      "test": 90
     }
   ],
-  "last_updated": "2026-05-28T22:27:24+05:30"
+  "last_updated": "2026-06-05T12:07:36+05:30"
 }
