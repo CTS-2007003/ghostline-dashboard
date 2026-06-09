@@ -2,10 +2,10 @@
   "username": "nitindighade",
   "display_name": "Nitin Dighade",
   "team": "Asteroids",
-  "total_lines_written": 40076,
+  "total_lines_written": 40264,
   "total_ai_lines": 1498,
-  "dev_lines_written": 38358,
-  "test_lines_written": 290,
+  "dev_lines_written": 38507,
+  "test_lines_written": 329,
   "history": [
     {
       "date": "2026-05-14",
@@ -55,7 +55,14 @@
       "ai": 0,
       "dev": 2384,
       "test": 53
+    },
+    {
+      "date": "2026-06-09",
+      "total": 188,
+      "ai": 0,
+      "dev": 149,
+      "test": 39
     }
   ],
-  "last_updated": "2026-05-28T13:52:09+05:30"
+  "last_updated": "2026-06-09T15:21:15+05:30"
 }
