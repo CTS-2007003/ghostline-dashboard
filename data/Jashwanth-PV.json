@@ -2,10 +2,10 @@
   "username": "Jashwanth-PV",
   "display_name": "Jashwanth",
   "team": "WNM",
-  "total_lines_written": 734,
+  "total_lines_written": 954,
   "total_ai_lines": 0,
-  "dev_lines_written": 599,
-  "test_lines_written": 135,
+  "dev_lines_written": 619,
+  "test_lines_written": 335,
   "history": [
     {
       "date": "2026-05-15",
@@ -100,11 +100,11 @@
     },
     {
       "date": "2026-07-30",
-      "total": 43,
+      "total": 263,
       "ai": 0,
-      "dev": 35,
-      "test": 8
+      "dev": 55,
+      "test": 208
     }
   ],
-  "last_updated": "2026-07-30T16:39:36+05:30"
+  "last_updated": "2026-07-30T20:03:33+05:30"
 }
