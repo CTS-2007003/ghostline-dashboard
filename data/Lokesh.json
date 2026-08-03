@@ -2,7 +2,7 @@
   "username": "Lokesh",
   "display_name": "Lokesh Pathapati",
   "team": "Hercules",
-  "total_lines_written": 5364,
+  "total_lines_written": 5769,
   "total_ai_lines": 10,
   "history": [
     {
@@ -162,9 +162,9 @@
     },
     {
       "date": "2026-08-03",
-      "total": 168,
+      "total": 573,
       "ai": 0
     }
   ],
-  "last_updated": "2026-08-03T17:10:56+05:30"
+  "last_updated": "2026-08-03T20:10:57+05:30"
 }
