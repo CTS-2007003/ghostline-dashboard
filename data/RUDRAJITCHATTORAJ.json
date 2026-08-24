@@ -2,10 +2,10 @@
   "username": "RUDRAJITCHATTORAJ",
   "display_name": "RUDRAJITCHATTORAJ",
   "team": "Prefplus",
-  "total_lines_written": 37759,
+  "total_lines_written": 38845,
   "total_ai_lines": 109,
-  "dev_lines_written": 37658,
-  "test_lines_written": 94,
+  "dev_lines_written": 38742,
+  "test_lines_written": 96,
   "history": [
     {
       "date": "2026-05-13",
@@ -132,7 +132,14 @@
       "ai": 0,
       "dev": 174,
       "test": 0
+    },
+    {
+      "date": "2026-08-24",
+      "total": 1086,
+      "ai": 0,
+      "dev": 1084,
+      "test": 2
     }
   ],
-  "last_updated": "2026-08-06T12:08:19+05:30"
+  "last_updated": "2026-08-24T10:15:33+05:30"
 }
