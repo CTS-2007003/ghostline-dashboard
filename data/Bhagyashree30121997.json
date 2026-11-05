@@ -1,0 +1,19 @@
+{
+  "username": "Bhagyashree30121997",
+  "display_name": "Bhagyashree",
+  "team": "WNM",
+  "total_lines_written": 20,
+  "total_ai_lines": 0,
+  "dev_lines_written": 20,
+  "test_lines_written": 0,
+  "history": [
+    {
+      "date": "2026-11-05",
+      "total": 20,
+      "ai": 0,
+      "dev": 20,
+      "test": 0
+    }
+  ],
+  "last_updated": "2026-11-05T13:08:44+05:30"
+}
