@@ -2,9 +2,9 @@
   "username": "AnkanaBasu-97",
   "display_name": "Ankana",
   "team": "WNM",
-  "total_lines_written": 914,
+  "total_lines_written": 1888,
   "total_ai_lines": 0,
-  "dev_lines_written": 826,
+  "dev_lines_written": 1800,
   "test_lines_written": 88,
   "history": [
     {
@@ -27,7 +27,14 @@
       "ai": 0,
       "dev": 410,
       "test": 88
+    },
+    {
+      "date": "2026-11-09",
+      "total": 974,
+      "ai": 0,
+      "dev": 974,
+      "test": 0
     }
   ],
-  "last_updated": "2026-09-10T12:04:02+05:30"
+  "last_updated": "2026-11-09T12:35:18+05:30"
 }
